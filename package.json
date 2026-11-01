@@ -4,6 +4,16 @@
   "private": true,
   "type": "module",
   "description": "DSH 工作台插件：以工作区项目为维度的会话/任务仪表盘",
+  "license": "MIT",
+  "author": "AlwaysFyo",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/AlwaysFyo/dsh-workbench.git"
+  },
+  "homepage": "https://cnb.cool/one-mugen/dsh-workbench",
+  "bugs": {
+    "url": "https://github.com/AlwaysFyo/dsh-workbench/issues"
+  },
   "main": "./lib/index.js",
   "exports": {
     ".": "./lib/index.js",

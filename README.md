@@ -1,5 +1,9 @@
 # dsh-workbench
 
+[![CI](https://github.com/AlwaysFyo/dsh-workbench/actions/workflows/ci.yml/badge.svg)](https://github.com/AlwaysFyo/dsh-workbench/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+[![CNB](https://img.shields.io/badge/mirror-CNB-1a7f37.svg)](https://cnb.cool/one-mugen/dsh-workbench)
+
 DSH（DeepSeekRuntime）工作台插件：以工作区项目为维度的会话 / 任务仪表盘。
 
 - 仓库（双远端同步）：[CNB](https://cnb.cool/one-mugen/dsh-workbench) · [GitHub](https://github.com/AlwaysFyo/dsh-workbench)
