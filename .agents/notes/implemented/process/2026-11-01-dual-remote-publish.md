@@ -13,6 +13,8 @@ Status: implemented
 仓库创建路径固定下来：CNB 侧用 OpenAPI `POST https://api.cnb.cool/{group}/-/repos`（Bearer 访问令牌，body { name, visibility: public, description }，201 即成功），令牌取自本机 git 凭据管理器（host=cnb.cool），不写入任何文件；GitHub 侧用 `gh repo create <owner>/<repo> --public --description ...`，gh 已登录 AlwaysFyo。首次推送为基线提交 `681a927`（59 个文件）；`.gitignore` 排除 `node_modules/`、`lib/`、`*.tgz`、`*.log`、`.refs/`，因此构建产物与参考仓库克隆不进仓库。
 
 发布纪律：源码、docs、tests、scripts、KANBAN.json、.agents/notes 均入库；版本号以 package.json 为准，打 tarball 安装到 profile 后必须核对 `lib/` 哈希；公开仓库不含任何令牌、个人绝对路径或本机存储快照（发布前对 src/docs/tests/scripts/web 做过 gho_/Bearer/1910 前缀与 C:\\Users\\yolo 扫描，仅 mock 数据含 D:\\Projects 示例路径，属演示数据）。
+
+许可与 CI 固定为：MIT（LICENSE，Copyright (c) 2026 AlwaysFyo），package.json 补 `license`/`author`/`repository`（git+https://github.com/AlwaysFyo/dsh-workbench.git）/`homepage`（CNB）/`bugs`。CI 跑在 GitHub Actions（.github/workflows/ci.yml：Node 24 + `npm ci` + `npm run check` + `npm test`，push main / PR / 手动触发），因为 CNB 侧没有现成流水线，而 GitHub 的 badge 端点可直接匿名取用；CNB 在 README 里只作为镜像入口。README 顶部三枚徽章：CI 状态、MIT、CNB 镜像。CI 不覆盖构建产物（lib/ 入库被忽略），因此它只证明源码能通过类型检查与单测，不证明 tarball 可安装。负向保证：不添加 CNB 流水线、不把 GitHub PAT 交给 CNB、不发布 npm 包（保持 `private: true`）。
 ## Alternatives considered
 
 **CNB Git Sync 插件（tencentcom/git-sync）**：平台级自动双向同步，听起来最省心。放弃的原因是它要求在 CNB 仓库侧保存一个可写 GitHub PAT 并维护仓库映射，等于把第三方写权限托管到平台配置里；对本项目"作者单向发布"的诉求，双 pushURL 已足够，且凭据仍留在本机凭据管理器。

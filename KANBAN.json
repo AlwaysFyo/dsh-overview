@@ -128,6 +128,23 @@
       ],
       "createdAt": 1793525114581,
       "updatedAt": 1793525114581
+    },
+    {
+      "id": "card-1723ab68-83b0-451c-977e-33c3c9be0cb2",
+      "title": "补齐开源元数据：MIT LICENSE、GitHub Actions CI 徽章与 package.json repository 字段",
+      "summary": "新增 LICENSE（MIT，Copyright (c) 2026 AlwaysFyo）；package.json 补 license/author/repository(git+https://github.com/AlwaysFyo/dsh-workbench.git)/homepage(CNB)/bugs；新增 .github/workflows/ci.yml（ubuntu-latest + Node 24 + npm ci + npm run check + npm test，push main/PR/手动）；README 顶部加 CI、MIT、CNB 三枚徽章。提交 695c8a6 已双推；GitHub Actions 首跑 success（18s），两个 badge 端点匿名返回 image/svg+xml；本地 tsc 0、npm test 15/15。",
+      "rationale": "上一条交付消息末尾提出的两个可选项，用户确认要做：仓库没有许可证等于\"公开但保留所有权利\"，且 package.json 缺 repository/homepage/bugs 会让 GitHub 与包来源信息缺失；同时需要一个真实可验证的 CI 徽章，而不是静态图片。",
+      "rejected": "没有加 CNB 流水线来出 CNB 徽章——需要先写 .cnb.yml 并确认 CNB 流水线语法与 runner 镜像，收益只是多一枚徽章；也没有只放 shields 静态徽章冒充 CI 状态（无实际检查）。不发布 npm 包，保持 private: true。",
+      "sourceSessionId": "session-e42b7310-0c3f-4303-98a9-ebf2629c9f21",
+      "status": "done",
+      "tags": [
+        "release",
+        "ci",
+        "docs",
+        "license"
+      ],
+      "createdAt": 1793526305358,
+      "updatedAt": 1793526305358
     }
   ]
 }
