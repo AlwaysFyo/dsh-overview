@@ -1,6 +1,6 @@
 {
   "name": "dsh-overview",
-  "version": "0.1.7",
+  "version": "0.1.8",
   "private": true,
   "type": "module",
   "description": "DSH 全景概览插件：以工作区项目为维度的会话/任务仪表盘",

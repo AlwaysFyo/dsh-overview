@@ -15,7 +15,7 @@ DSH（DeepSeekRuntime）全景概览插件：以工作区项目为维度的会�
 
 ## 当前状态
 
-第 1–4 步已落地，v0.1.7 已安装在本机 `desktop` profile（`~/.dsh/profiles/desktop`），侧栏「全景概览」入口与整页视图可用：
+第 1–4 步已落地，v0.1.8 已安装在本机 `desktop` profile（`~/.dsh/profiles/desktop`），侧栏「全景概览」入口与整页视图可用：
 
 - **数据层** `src/model/` — 四数据源只读聚合（`workspace.json` / `session.v4.jsonl.zstd` / `session_projcache` / 归档缓存）。归档真相取 `workspace.json` 的 `global.archivedSessionIds`；归档缓存只补元数据，已归档会话允许同时是 live 会话；只存在于归档缓存、没有转录文件且宿主未标记归档的孤儿记录会被丢弃（否则会以「无标题」幽灵行出现）。
 - **宿主侧** `src/host/` — `GET /dsh-overview/state`、SSE `/dsh-overview/events`、`POST /dsh-overview/session/delete`（同源校验、body ≤ 8 KiB、未知会话幂等 skipped）。删除语义对齐 `dsh-archive-manager`：flush / detach live 会话 → 清投影缓存 → 只级联 `origin === 'subagent'` 子会话 → 清 spill → 删除 jsonl 转录目录（校验路径所有权，拒绝符号链接）→ 成功后清归档缓存与 workspace 记账 → 广播 `api-session/removed`。
