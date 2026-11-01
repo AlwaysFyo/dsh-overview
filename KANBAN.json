@@ -163,6 +163,22 @@
       ],
       "createdAt": 1793527227407,
       "updatedAt": 1793527227407
+    },
+    {
+      "id": "card-3a797edd-fbff-4bab-a3c0-4329aeb2e4b5",
+      "title": "本地目录改名 D:\\Projects\\dsh-overview 并重装插件",
+      "summary": "会话工作目录先切到 D:\\Projects，再把 dsh-workbench 重命名为 dsh-overview（Move-Item 成功，无文件锁）；版本升 0.1.8，构建后从新路径 file:D:\\Projects\\dsh-overview\\dsh-overview-0.1.8.tgz 重新安装到 desktop profile，profile dependency 已指向新路径；安装后 client/index 哈希 6E066FEB… / 40DFD48B… 与本地一致，GET /dsh-overview/state 正常（12 项目 / 47 会话）；README 版本号与改名笔记补记目录变更；提交 223542a 双推。",
+      "rationale": "包与仓库都已改名 dsh-overview，本地目录仍叫 dsh-workbench，是最后一块旧名字；它同时出现在 profile 的 file: 依赖路径里，越晚改，安装路径与文档引用就越多。当前会话可先切到父目录再改，成本最低。",
+      "rejected": "保留旧目录名并只改文档（路径与包名长期不一致，profile 依赖仍指向 workbench 目录）；新建目录后复制（会重复 .git/node_modules，且旧目录残留）。",
+      "sourceSessionId": "session-e42b7310-0c3f-4303-98a9-ebf2629c9f21",
+      "status": "done",
+      "tags": [
+        "rename",
+        "hygiene",
+        "release"
+      ],
+      "createdAt": 1793528199068,
+      "updatedAt": 1793528199068
     }
   ]
 }
