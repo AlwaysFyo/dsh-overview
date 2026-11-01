@@ -100,11 +100,16 @@ export const themeCss = `/* dsh-overview 设计 tokens 与组件样式
 .wb-sact-btn:hover { background: var(--wb-surface-2); color: var(--wb-ink); }
 .wb-sact-btn.wb-danger:hover { color: var(--wb-danger); }
 
-/* 搜索下拉（R4-lite） */
+/* 搜索下拉（R4：项目 / 会话 / 待办，按项目分组） */
 .wb-search-pop {
   position: absolute; top: 36px; left: 0; right: 0; z-index: 30;
   background: var(--wb-surface); border: 1px solid var(--wb-line); border-radius: var(--wb-radius);
-  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.16); overflow: hidden;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, 0.16); overflow: hidden; max-height: 420px; overflow-y: auto;
+}
+.wb-search-group + .wb-search-group { border-top: 1px solid var(--wb-line); }
+.wb-search-group .grp {
+  padding: 6px 12px 4px; font-size: 11px; font-weight: 600; letter-spacing: 0.02em;
+  color: var(--wb-ink-3); background: var(--wb-surface-2); position: sticky; top: 0;
 }
 .wb-search-pop .sr {
   display: block; width: 100%; text-align: left; padding: 8px 12px; border: 0; background: none;
@@ -112,6 +117,7 @@ export const themeCss = `/* dsh-overview 设计 tokens 与组件样式
 }
 .wb-search-pop .sr:hover { background: var(--wb-surface-2); }
 .wb-search-pop .sr .p { font-size: 11px; color: var(--wb-ink-3); }
+.wb-search-pop .sr mark { background: var(--wb-accent-bg); color: var(--wb-accent); border-radius: 3px; padding: 0 1px; }
 .wb-search-pop .none { padding: 14px; text-align: center; color: var(--wb-ink-3); font-size: 12px; }
 
 /* ===== L1 ===== */

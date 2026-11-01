@@ -50,15 +50,22 @@ export interface TokenTotals {
   cacheWriteTokens: number
 }
 
-/** 会话条目的待办快照（rows.todos.val，可能为 null） */
-export interface SessionTodos {
-  [k: string]: unknown
+/**
+ * 会话内待办条目（rows.todos.val 的元素）。
+ * 实测宿主写入形态：[{ content, status: 'pending'|'in_progress'|'completed' }]，
+ * 未知 status 原样保留，UI 按「未完成」计数。
+ */
+export interface SessionTodoItem {
+  content: string
+  status: string
 }
 
 /** sessions 目录扫描出的单个会话文件信息 */
 export interface SessionFileInfo {
   /** 相对 sessions 根的路径：<slug>/<dir> */
   dirName: string
+  /** 转录文件绝对路径（标题兜底时按需流式读取） */
+  file: string
   head: SessionHead
   /** 文件修改时间（epoch ms） */
   fileMtime: number
@@ -78,8 +85,8 @@ export interface SessionMeta {
   /** 轮次数（rows.sessionStats.val.turns） */
   turns: number | null
   tokenTotals: TokenTotals | null
-  /** 会话内待办原始数据（R6 的提取源，MVP 不解析内部结构） */
-  todosRaw: unknown | null
+  /** 会话内待办（rows.todos.val 解析结果，R6） */
+  todos: SessionTodoItem[]
   archived: boolean
   /**
    * 数据来源：
@@ -115,8 +122,6 @@ export interface ProjectState {
 export interface WorkbenchState {
   generatedAt: number
   projects: ProjectState[]
-  /** 当前宿主实例内运行中的会话 id（sessions.list() 推导，Q2；仅宿主运行时有值） */
-  liveSessionIds?: string[]
   /** 各数据源读取时的降级/告警信息（R5：不白屏，如实上报） */
   warnings: string[]
 }

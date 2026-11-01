@@ -1,6 +1,6 @@
 # Agent Note: session-head-cache
 
-Status: implemented
+Status: superseded by [2026-11-01-session-head-streaming.md](2026-11-01-session-head-streaming.md)（缓存保留，但冷启动改为异步流式解压首行）
 
 ## Problem
 

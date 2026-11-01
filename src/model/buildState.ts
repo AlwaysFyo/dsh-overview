@@ -7,12 +7,13 @@ import type {
 } from './types.ts'
 import { statSync } from 'node:fs'
 import { normalizePath } from './paths.ts'
-import { extractLastPromptAt, extractTitle, extractTokenTotals, extractTodos, extractTurns } from './rows.ts'
+import { extractLastPromptAt, extractTitle, extractTokenTotals, extractTodoItems, extractTurns } from './rows.ts'
 import {
   readArchiveRecords,
   readHostArchivedIds,
   readProjcacheRecords,
   readSessionHeads,
+  readSessionTitleFallback,
   readWorkspaces,
   type SourceResult,
   type WorkspaceEntry,
@@ -34,7 +35,7 @@ export interface BuildStateOptions {
  *  - 归档记录 ↔ 项目：record.sessionId 自标识 + identity.cwd
  *  - 会话 ↔ 工作区：normalizePath(cwd) === normalizePath(workspace.path)
  */
-export function buildState(options: BuildStateOptions): WorkbenchState {
+export async function buildState(options: BuildStateOptions): Promise<WorkbenchState> {
   const warnings: string[] = []
   const { home } = options
   const checkDisk = options.checkDisk ?? true
@@ -43,7 +44,7 @@ export function buildState(options: BuildStateOptions): WorkbenchState {
   const arcRes = readHostArchivedIds(workspaceJsonPath(home))
   const pcRes = readProjcacheRecords(projcacheDir(home))
   const arRes = readArchiveRecords(archiveDir(home))
-  const sfRes = readSessionHeads(sessionsRoot(home))
+  const sfRes = await readSessionHeads(sessionsRoot(home))
   warnings.push(...wsRes.warnings, ...arcRes.warnings, ...pcRes.warnings, ...arRes.warnings, ...sfRes.warnings)
 
   // 宿主归档集合：唯一归档真相。live 会话也可以处于归档态（归档不删文件），
@@ -76,7 +77,7 @@ export function buildState(options: BuildStateOptions): WorkbenchState {
     lastActivityAt: null,
     turns: extractTurns(rec),
     tokenTotals: extractTokenTotals(rec),
-    todosRaw: extractTodos(rec),
+    todos: extractTodoItems(rec),
     archived: base.archived,
     source: base.source,
     dirName: base.dirName,
@@ -113,7 +114,7 @@ export function buildState(options: BuildStateOptions): WorkbenchState {
           lastActivityAt: null,
           turns: null,
           tokenTotals: null,
-          todosRaw: null,
+          todos: [],
           archived: false,
           source: 'live',
           dirName: info.dirName,
@@ -122,6 +123,17 @@ export function buildState(options: BuildStateOptions): WorkbenchState {
     // live 数据优先于同 id 的 archive/cacheOnly
     const prev = sessions.get(head.id)
     if (!prev || prev.source !== 'live') sessions.set(head.id, meta)
+  }
+
+  // 2b) 没有 projcache 标题的 live 会话：用首条 user 消息兜底（流式扫描，缺标题才读）。
+  //     这类会话在真实数据里不算少（宿主并非每次都写 title 行），裸 id 对用户没有信息量。
+  const infoById = new Map(sfRes.data.map((info) => [info.head.id, info]))
+  for (const meta of sessions.values()) {
+    if (meta.source !== 'live' || meta.title) continue
+    const info = infoById.get(meta.id)
+    if (!info) continue
+    const fallback = await readSessionTitleFallback(info.file)
+    if (fallback) meta.title = fallback
   }
 
   // 3) 仅 projcache 有记录的会话（会话文件缺失，如清理过）

@@ -18,7 +18,7 @@ function session(partial: Partial<SessionMeta> & { id: string }): SessionMeta {
     lastActivityAt: NOW - 2 * H,
     turns: 1,
     tokenTotals: null,
-    todosRaw: null,
+    todos: [],
     archived: false,
     source: 'live',
     dirName: null,
@@ -43,8 +43,12 @@ export function mockState(): WorkbenchState {
     title: 'osuply',
     workspaceId: 'ws-osuply',
     sessions: [
-      session({ id: 's-1', title: '重构 osuply 部署脚本', cwd: 'D:\\Projects\\osuply', lastActivityAt: NOW - 30 * 60_000, turns: 14, tokenTotals: { uncachedInputTokens: 486_000, outputTokens: 61_000, cacheReadTokens: 0, cacheWriteTokens: 0 } }),
-      session({ id: 's-2', title: '排查 pnpm 解析报错', cwd: 'D:\\Projects\\osuply', lastActivityAt: NOW - 26 * H, turns: 3 }),
+      session({ id: 's-1', title: '重构 osuply 部署脚本', cwd: 'D:\\Projects\\osuply', lastActivityAt: NOW - 30 * 60_000, turns: 14, tokenTotals: { uncachedInputTokens: 486_000, outputTokens: 61_000, cacheReadTokens: 0, cacheWriteTokens: 0 }, todos: [
+        { content: '拆分 deploy 与 rollback 两个子命令', status: 'in_progress' },
+        { content: '补 README 部署章节的失败回滚说明', status: 'pending' },
+        { content: '确认 Node 24 下 pnpm 版本锁定', status: 'completed' },
+      ] }),
+      session({ id: 's-2', title: '排查 pnpm 解析报错', cwd: 'D:\\Projects\\osuply', lastActivityAt: NOW - 26 * H, turns: 3, todos: [{ content: '复现 hoisted 模式下的 peer 冲突', status: 'pending' }] }),
       session({ id: 's-3', title: '迁移 CI 缓存到本地', cwd: 'D:\\Projects\\osuply', lastActivityAt: NOW - 3 * D, turns: 9 }),
       session({ id: 's-4', title: '整理 README 部署章节', cwd: 'D:\\Projects\\osuply', lastActivityAt: NOW - 5 * D, turns: 5 }),
     ],
@@ -109,7 +113,6 @@ export function mockState(): WorkbenchState {
   return {
     generatedAt: NOW,
     projects: [osuply, onenote, dshFairy, deadPath, archived, orphan],
-    liveSessionIds: ['s-1'],
     warnings: [],
   }
 }

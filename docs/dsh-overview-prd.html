@@ -189,6 +189,7 @@
   <ul>
     <li>范围（P0）：项目名、会话标题 / 摘要、待办文本；P0 数据量小，实时扫描即可，不建索引。</li>
     <li>结果按项目分组展示、命中词高亮，点击直达对应会话或待办。</li>
+    <li><b>实现状态（2026-11-01，v0.1.11）</b>：已实现 <code>searchWorkbench</code> —— 项目名 / 会话标题 / 待办内容三路匹配，按项目分组、命中高亮；命中会话直接 <code>uiWorkspace.openSession</code>，项目级命中退到项目详情。</li>
   </ul>
   <div class="ac"><b>AC-8</b>：Given 关键词命中 2 个项目的 3 条会话，When 搜索，Then 按项目分组展示、命中高亮，且归档项目的结果在「全部」语义下可达。</div>
 </div>
@@ -206,6 +207,7 @@
   <ul>
     <li>来源优先级：① 宿主 todo 工具事件（可订阅则监听）；② 会话产物解析（markdown checklist 等）兜底；③ 手动添加作为补充。</li>
     <li>待办归属项目 = 产生它的会话所在项目；勾选完成状态写入 <code>dsh-overview/todos.json</code>（第二处写入点）。</li>
+    <li><b>实现状态（2026-11-01，v0.1.11）</b>：已实现<b>只读聚合</b> —— 解析 projcache <code>rows.todos.val</code>（<code>[{content,status}]</code>，未知 status 归为 pending），按会话所在项目汇总到详情页侧栏（<code>in_progress</code> 优先）与会话行待办数；顶栏「待办 N」同源。手动添加 / 勾选回写（todos.json）<b>未实现</b>。</li>
   </ul>
   <div class="ac"><b>AC-10</b>：Given 会话内产生 3 条 todo，When 打开该项目详情页，Then 待办面板收录 ≥ 80% 且标注来源会话。</div>
 </div>

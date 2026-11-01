@@ -1,29 +1,83 @@
 import type { WorkbenchState } from '../model/types.ts'
 
-/** R4-lite：跨项目搜索会话标题（P0 实时扫描，无索引） */
+/**
+ * R4 跨项目搜索：项目名 / 会话标题 / 会话待办三路匹配，按项目分组。
+ * 纯实时扫描（数据量在几十个会话级别），不建索引。
+ */
+export type HitKind = 'project' | 'session' | 'todo'
+
 export interface SearchHit {
+  kind: HitKind
   projectId: string
   projectTitle: string
-  sessionId: string
-  title: string
+  /** 项目级命中为 null */
+  sessionId: string | null
+  sessionTitle: string | null
+  /** 展示文本：项目名 / 会话标题 / 待办内容 */
+  text: string
 }
 
-export function searchSessions(state: WorkbenchState, query: string): SearchHit[] {
+export interface SearchGroup {
+  projectId: string
+  projectTitle: string
+  hits: SearchHit[]
+}
+
+const MAX_GROUPS = 8
+const MAX_HITS = 24
+
+export function searchWorkbench(state: WorkbenchState, query: string, limit = MAX_HITS): SearchGroup[] {
   const q = query.trim().toLowerCase()
   if (!q) return []
-  const hits: SearchHit[] = []
+  const groups: SearchGroup[] = []
+  let total = 0
   for (const project of state.projects) {
+    const hits: SearchHit[] = []
+    if (project.title.toLowerCase().includes(q)) {
+      hits.push({
+        kind: 'project',
+        projectId: project.id,
+        projectTitle: project.title,
+        sessionId: null,
+        sessionTitle: null,
+        text: project.title,
+      })
+    }
     for (const s of project.sessions) {
       if (s.title && s.title.toLowerCase().includes(q)) {
-        hits.push({ projectId: project.id, projectTitle: project.title, sessionId: s.id, title: s.title })
+        hits.push({
+          kind: 'session',
+          projectId: project.id,
+          projectTitle: project.title,
+          sessionId: s.id,
+          sessionTitle: s.title,
+          text: s.title,
+        })
       }
-      if (hits.length >= 8) return hits
+      for (const t of s.todos) {
+        if (!t.content.toLowerCase().includes(q)) continue
+        hits.push({
+          kind: 'todo',
+          projectId: project.id,
+          projectTitle: project.title,
+          sessionId: s.id,
+          sessionTitle: s.title,
+          text: t.content,
+        })
+      }
     }
+    if (hits.length === 0) continue
+    const room = limit - total
+    if (room <= 0) break
+    const kept = hits.slice(0, room)
+    groups.push({ projectId: project.id, projectTitle: project.title, hits: kept })
+    total += kept.length
+    if (groups.length >= MAX_GROUPS) break
   }
-  return hits
+  return groups
 }
 
-/** 标题命中片段高亮：<mark> */
+/** 命中片段高亮：<mark> */
 export function highlightTitle(title: string, query: string): Array<{ text: string; hit: boolean }> {
   const q = query.trim()
   if (!q) return [{ text: title, hit: false }]

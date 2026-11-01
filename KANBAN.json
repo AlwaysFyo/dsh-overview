@@ -194,6 +194,40 @@
       "summary": "src/model/sources.ts 的 readSessionHeads 增加进程内 headCache，以 (size:mtimeMs) 指纹跳过未变化文件，删除的文件同步淘汰；导出 clearSessionHeadCache() 供测试隔离。实测本机 47 会话/58MB：冷 486ms → 热 10ms。版本 0.1.10 已构建安装（host 需重启生效）。",
       "rationale": "宿主周期重写投影缓存会触发 rebuild()，而每次重建都同步整文件解压 58MB 只为读第一行头信息，跑在宿主事件循环上，会话规模增长后会造成明显卡顿。",
       "rejected": "流式解压只读首行（需把 readSessionHeads 改异步，波及 buildState/CLI/测试签名，收益只在进程启动一次）；把头部写进独立索引文件（违背对宿主数据零写入）；依赖 projcache 标题（会周期性重写且并非每会话都有记录）。"
+    },
+    {
+      "id": "card-ba36a6d6-b271-be66-51ec-f609b6330618",
+      "title": "优化 P0/P1：冷启动流式会话头、删宿主探针、SSE 心跳、搜索分组直达、待办聚合、标题兜底",
+      "status": "done",
+      "tags": [
+        "perf",
+        "model",
+        "host",
+        "client",
+        "search",
+        "todos"
+      ],
+      "createdAt": "2026-11-01T10:53:08.147Z",
+      "updatedAt": "2026-11-01T10:53:08.147Z",
+      "summary": "readSessionHeads 改为异步流式解压（createReadStream + createZstdDecompress，读到首个换行即停），buildState/CLI 异步化；host 删除 probeServices/sampleSessionService/extractFirstId/collectSessionIds 与 /_debug 整条路由，/state 改为惰性单飞构建且不再返回 liveSessionIds；SSE 加 25s 心跳与 close 清理；SearchHit 重写为 searchWorkbench（项目名/会话标题/待办三路匹配、按项目分组、命中会话 openSession 直达）；todosRaw 改为结构化 todos 并在详情页聚合（in_progress 优先、会话行显示待办数）；无标题 live 会话用首条 user/message 兜底（60 字截断）。实测冷建 486→29ms、热 10ms；47 会话 / 20 条待办 / 7 条空会话仍无标题。版本 0.1.11 已安装，测试 22/22、tsc 0，GET /state 已无 liveSessionIds，SSE 收到 hello + change + ping。",
+      "rationale": "上一轮性能只做了会话头缓存（热读 10ms），冷启动仍整文件解压 58MB 压在宿主事件循环；宿主探针与 /_debug 是调试遗留、会暴露内部服务结构；R4/R6 是 PRD 里尚未闭环的 P0/P1，用户明确要求「优化所有 P0、P1」。",
+      "rejected": "继续只靠缓存（冷启动仍 ~490ms）；把头部写入独立索引文件（违背对宿主数据零写入）；搜索建倒排索引（仅几十会话，实时扫描足够）；待办走宿主 todo 工具事件（Q3 未验证，当前只需只读聚合）；给空会话编造标题（不真实，保留「(无标题)」并在 README 说明）。"
+    },
+    {
+      "id": "card-be756a33-7bfd-145e-b799-68e1a9964ca4",
+      "title": "P2/P3 收尾：路由集成测试、CI build、bundle minify、参考项目的收藏/批量归档/归档搜索",
+      "status": "todo",
+      "tags": [
+        "p2",
+        "p3",
+        "testing",
+        "ci"
+      ],
+      "createdAt": "2026-11-01T10:53:08.147Z",
+      "updatedAt": "2026-11-01T10:53:08.147Z",
+      "summary": "",
+      "rationale": "P0/P1 已闭环，剩余为质量与增值项：/state 与删除路由只有手工 curl 验证；CI 只跑 check+test 不跑 build（构建失败要等安装时才发现）；client bundle 未 minify；参考 dsh-archive-manager 还有收藏、批量归档/删除、归档内容搜索、缓存诊断、孤儿 subagent 清理、跨工作区移动可借鉴。",
+      "rejected": "暂缓理由：路由集成测试要伪造 cordis ctx 与 webServer，成本高于当前收益；归档内容全文搜索需要索引，与 R4 实时扫描口径冲突，等真实使用量再定。"
     }
   ]
 }

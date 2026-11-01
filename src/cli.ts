@@ -11,7 +11,7 @@ const asJson = args.includes('--json')
 const projectFilterIdx = args.indexOf('--project')
 const projectFilter = projectFilterIdx > -1 ? args[projectFilterIdx + 1] : null
 
-const state = buildState({ home: dshHome() })
+const state = await buildState({ home: dshHome() })
 const filtered: WorkbenchState = projectFilter
   ? {
       ...state,

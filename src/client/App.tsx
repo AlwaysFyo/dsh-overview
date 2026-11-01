@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState, useSyncExternalStore } from './react.ts'
 import type { WorkbenchState } from '../model/types.ts'
 import { fetchState, IS_HOSTED, projectLiveness, projectTodoCount } from './api.ts'
 import { getLivenessSnapshot, subscribeLiveness } from './liveness.ts'
-import { searchSessions, highlightTitle } from './SearchHit.ts'
+import { searchWorkbench, highlightTitle, type SearchHit } from './SearchHit.ts'
 import { Wall } from './views/Wall.tsx'
 import { Detail } from './views/Detail.tsx'
 
@@ -70,6 +70,8 @@ export function WorkbenchApp({
     let es: EventSource | null = null
     try {
       es = new EventSource('/dsh-overview/events')
+      // hello 只代表连接建立/重连：重连后状态可能已过期，主动拉一次
+      es.addEventListener('hello', () => refresh())
       es.addEventListener('change', () => refresh())
     } catch {
       /* SSE 不可用则依赖手动刷新 */
@@ -77,11 +79,11 @@ export function WorkbenchApp({
     return () => es?.close()
   }, [])
 
-  const hits = useMemo(() => (state && searchOpen ? searchSessions(state, query) : []), [state, searchOpen, query])
+  const groups = useMemo(() => (state && searchOpen ? searchWorkbench(state, query) : []), [state, searchOpen, query])
 
-  // 官方客户端会话快照里的运行中会话（与侧栏同源）；未绑定时回退宿主 liveSessionIds
+  // 官方客户端会话快照里的运行中会话（与侧栏同源）；未绑定时返回 null，由时间窗兜底
   const liveness = useSyncExternalStore(subscribeLiveness, getLivenessSnapshot)
-  const liveIds: readonly string[] | null = liveness.ready ? liveness.ids : (state?.liveSessionIds ?? null)
+  const liveIds: readonly string[] | null = liveness.ready ? liveness.ids : null
 
   const globalRunning = useMemo(() => {
     if (!state) return 0
@@ -119,6 +121,20 @@ export function WorkbenchApp({
     window.scrollTo({ top: 0 })
   }
 
+  /** 搜索结果：有会话就直达会话（宿主 openSession）；项目级命中/无服务时退到项目详情 */
+  const openHit = (hit: SearchHit) => {
+    if (hit.sessionId) {
+      const uiWorkspace = getUiWorkspace?.()
+      if (uiWorkspace?.openSession) {
+        setSearchOpen(false)
+        setQuery('')
+        uiWorkspace.openSession(hit.sessionId)
+        return
+      }
+    }
+    openProject(hit.projectId)
+  }
+
   const current = view.kind === 'l2' ? state.projects.find((p) => p.id === view.projectId) : null
 
   return (
@@ -137,8 +153,8 @@ export function WorkbenchApp({
           </svg>
           <input
             type="search"
-            placeholder="跨项目搜索会话…"
-            aria-label="跨项目搜索会话"
+            placeholder="搜索项目、会话或待办…"
+            aria-label="跨项目搜索项目、会话与待办"
             value={query}
             onChange={(e) => {
               setQuery(e.target.value)
@@ -149,22 +165,33 @@ export function WorkbenchApp({
           />
           {searchOpen && query.trim() && (
             <div className="wb-search-pop" role="listbox" aria-label="搜索结果">
-              {hits.length === 0 && <div className="none">无匹配会话</div>}
-              {hits.map((h) => (
-                <button
-                  key={h.sessionId}
-                  type="button"
-                  className="sr"
-                  onMouseDown={(e) => e.preventDefault()}
-                  onClick={() => openProject(h.projectId)}
-                >
-                  <div>
-                    {highlightTitle(h.title, query).map((part, i) =>
-                      part.hit ? <mark key={i}>{part.text}</mark> : <span key={i}>{part.text}</span>,
-                    )}
-                  </div>
-                  <div className="p">{h.projectTitle}</div>
-                </button>
+              {groups.length === 0 && <div className="none">没有匹配的项目、会话或待办</div>}
+              {groups.map((group) => (
+                <div key={group.projectId} className="wb-search-group">
+                  <div className="grp">{group.projectTitle}</div>
+                  {group.hits.map((hit, i) => (
+                    <button
+                      key={`${hit.kind}-${hit.sessionId ?? 'project'}-${i}`}
+                      type="button"
+                      className="sr"
+                      onMouseDown={(e) => e.preventDefault()}
+                      onClick={() => openHit(hit)}
+                    >
+                      <div>
+                        {highlightTitle(hit.text, query).map((part, j) =>
+                          part.hit ? <mark key={j}>{part.text}</mark> : <span key={j}>{part.text}</span>,
+                        )}
+                      </div>
+                      <div className="p">
+                        {hit.kind === 'todo'
+                          ? `待办 · ${hit.sessionTitle ?? hit.sessionId ?? ''}`
+                          : hit.kind === 'project'
+                            ? '项目'
+                            : '会话'}
+                      </div>
+                    </button>
+                  ))}
+                </div>
               ))}
             </div>
           )}

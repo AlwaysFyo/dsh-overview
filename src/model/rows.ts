@@ -1,4 +1,4 @@
-import type { ProjcacheRecord, RowCell, SessionTodos, TokenTotals } from './types.ts'
+import type { ProjcacheRecord, RowCell, SessionTodoItem, TokenTotals } from './types.ts'
 
 /** 从 projcache 行单元格安全取 val */
 export function cellVal<T>(record: ProjcacheRecord, key: string): T | null {
@@ -37,6 +37,22 @@ export function extractTokenTotals(record: ProjcacheRecord): TokenTotals | null 
   }
 }
 
-export function extractTodos(record: ProjcacheRecord): SessionTodos | null {
-  return cellVal<SessionTodos>(record, 'todos')
+/**
+ * 会话待办：rows.todos.val 实测为 [{ content, status }]，也可能为空/异形。
+ * 只保留有文字内容的条目；未知 status 归为 'pending'（计数口径：非 completed）。
+ */
+export function extractTodoItems(record: ProjcacheRecord): SessionTodoItem[] {
+  const raw = cellVal<unknown>(record, 'todos')
+  if (!Array.isArray(raw)) return []
+  const items: SessionTodoItem[] = []
+  for (const entry of raw) {
+    if (!entry || typeof entry !== 'object') continue
+    const obj = entry as Record<string, unknown>
+    const content = typeof obj['content'] === 'string' ? obj['content'].trim() : ''
+    if (!content) continue
+    const known = obj['status']
+    const status = known === 'pending' || known === 'in_progress' || known === 'completed' ? known : 'pending'
+    items.push({ content, status })
+  }
+  return items
 }

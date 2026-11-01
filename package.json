@@ -1,12 +1,18 @@
 {
   "name": "dsh-overview",
-  "version": "0.1.10",
+  "version": "0.1.11",
   "private": true,
   "type": "module",
   "description": "DSH 全景概览插件：以工作区项目为维度的会话/任务仪表盘",
   "license": "MIT",
   "author": "AlwaysFyo",
-  "keywords": ["dsh", "dsh-plugin", "deepseekruntime", "dashboard", "sessions"],
+  "keywords": [
+    "dsh",
+    "dsh-plugin",
+    "deepseekruntime",
+    "dashboard",
+    "sessions"
+  ],
   "repository": {
     "type": "git",
     "url": "git+https://github.com/AlwaysFyo/dsh-overview.git"

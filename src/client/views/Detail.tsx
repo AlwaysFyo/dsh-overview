@@ -1,6 +1,6 @@
 import { useMemo, useState } from '../react.ts'
 import type { ProjectState, SessionMeta, WorkbenchState } from '../../model/types.ts'
-import { deleteSession, splitSessions, projectTodoCount } from '../api.ts'
+import { deleteSession, splitSessions, projectTodoCount, projectTodos } from '../api.ts'
 import type { SessionGroups } from '../api.ts'
 import { buildResumeText, queueResumeDraft } from '../resume.ts'
 import { fmtRelative, fmtNum } from '../util.ts'
@@ -41,13 +41,15 @@ export function Detail({
   onSwitch: (projectId: string) => void
 }) {
   const [tab, setTab] = useState<'running' | 'history' | 'archived'>('running')
-  const groups = useMemo(
-    () => splitSessions(project, Date.now(), liveIds ?? state.liveSessionIds ?? null),
-    [project, liveIds, state.liveSessionIds],
-  )
+  const groups = useMemo(() => splitSessions(project, Date.now(), liveIds ?? null), [project, liveIds])
 
   const totalTurns = project.sessions.reduce((sum, s) => sum + (s.turns ?? 0), 0)
   const todos = projectTodoCount(project)
+  const todoRows = useMemo(() => projectTodos(project), [project])
+  const inProgressTodos = project.sessions.reduce(
+    (sum, s) => sum + s.todos.filter((t) => t.status === 'in_progress').length,
+    0,
+  )
   const activeCount = project.sessions.filter((s) => !s.archived).length
 
   return (
@@ -92,7 +94,7 @@ export function Detail({
         <div className="wb-mcell">
           <div className="lbl">待办</div>
           <div className={todos > 0 ? 'val hot' : 'val'}>{todos}</div>
-          <div className="sub">R6 接入后显示明细</div>
+          <div className="sub">{inProgressTodos > 0 ? `${inProgressTodos} 条进行中` : todos > 0 ? '均已排期待办' : '暂无未完成待办'}</div>
         </div>
         <div className="wb-mcell">
           <div className="lbl">归档会话</div>
@@ -133,7 +135,19 @@ export function Detail({
         <aside>
           <div className="wb-side-card">
             <h3>待办</h3>
-            <div className="wb-side-empty">待办提取将在 P1（R6）接入，数据源为会话内 todo 记录。</div>
+            {todoRows.length === 0 ? (
+              <div className="wb-side-empty">暂无未完成待办。会话内的 todo 记录会聚合到这里。</div>
+            ) : (
+              <div className="wb-feed">
+                {todoRows.map((t, i) => (
+                  <div className="f" key={`${t.sessionId}-${i}`}>
+                    <span className={`wb-dot ${t.status === 'in_progress' ? 'wb-dot-run' : 'wb-dot-idle'}`} />
+                    {t.content}
+                    <span className="w">{t.sessionTitle ?? t.sessionId}</span>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
           <div className="wb-side-card">
             <h3>项目动态</h3>
@@ -303,6 +317,7 @@ function SessionList({
           </span>
           <span className="m num">
             {s.turns !== null ? `${s.turns} 轮 · ` : ''}
+            {s.todos.length > 0 ? `待办 ${s.todos.filter((t) => t.status !== 'completed').length} · ` : ''}
             {fmtRelative(s.lastActivityAt)}
           </span>
         </button>

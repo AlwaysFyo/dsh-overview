@@ -26,150 +26,55 @@ interface Scope {
 }
 
 const SSE_DEBOUNCE_MS = 400
-
-function describeService(svc: unknown): unknown {
-  if (svc === null || typeof svc !== 'object') return { type: typeof svc }
-  const proto = Object.getPrototypeOf(svc) as object | null
-  const fns = new Set<string>()
-  for (const obj of [svc, proto ?? {}]) {
-    for (const k of Object.getOwnPropertyNames(obj)) {
-      try {
-        if (typeof (obj as Record<string, unknown>)[k] === 'function' && k !== 'constructor') fns.add(k)
-      } catch {
-        /* getter 可能抛错 */
-      }
-    }
-  }
-  return { type: svc.constructor?.name ?? 'object', methods: [...fns] }
-}
+/** SSE 心跳：避免代理/休眠把长连接静默掐掉，客户端 EventSource 无需处理注释行 */
+const SSE_HEARTBEAT_MS = 25_000
 
 export function apply(ctx: Context): void {
-  const debugLog: unknown[] = []
-
-  // 宿主服务面探测（Q2 会话状态 / Q5 打开会话 的候选来源），结果经 GET /_debug 查看。
-  // 必须在 dsh-base 服务挂载后执行——放进 webServer 就绪回调（此刻基础服务必然就绪）。
-  const probeServices = () => {
-    const getSvc = (ctx as unknown as { get(name: string): unknown }).get.bind(ctx)
-    for (const name of ['sessions', 'session', 'workspace', 'workspaces', 'settings', 'connection', 'agents']) {
-      try {
-        const svc = getSvc(name)
-        debugLog.push({ probe: name, result: svc === undefined ? 'undefined' : describeService(svc) })
-      } catch (e) {
-        debugLog.push({ probe: name, error: String(e).slice(0, 200) })
-      }
-    }
-  }
-
-  /** 采样 sessions/agents 服务返回形态（Q2/Q5 落地前调研），经 GET /_debug 查看 */
-  const sampleSessionService = () => {
-    try {
-      const svc = (ctx as unknown as { get(name: string): unknown }).get('sessions') as
-        | { list?: () => unknown; get?: (id: string) => unknown; liveEntryFor?: (id: string) => unknown }
-        | undefined
-      if (!svc) return
-      const push = (label: string, value: unknown) => {
-        try {
-          debugLog.push({ sample: label, value: JSON.stringify(value)?.slice(0, 600) ?? String(value) })
-        } catch (e) {
-          debugLog.push({ sample: label, error: String(e).slice(0, 200) })
-        }
-      }
-      const list = svc.list?.()
-      push('sessions.list()', list)
-      // list 结果里取一个 id 采样 get/liveEntryFor
-      const firstId = extractFirstId(list)
-      if (firstId) {
-        push(`sessions.get(${firstId})`, svc.get?.(firstId))
-        push(`sessions.liveEntryFor(${firstId})`, svc.liveEntryFor?.(firstId))
-      }
-    } catch (e) {
-      debugLog.push({ sample: 'sessions', error: String(e).slice(0, 300) })
-    }
-  }
-
-  /** 从 list 返回值里尽力提取第一个会话 id */
-  function extractFirstId(list: unknown): string | null {
-    const seen = new Set<unknown>()
-    const walk = (v: unknown, depth: number): string | null => {
-      if (v === null || typeof v !== 'object' || depth > 4 || seen.has(v)) return null
-      seen.add(v)
-      if (Array.isArray(v)) {
-        for (const item of v) {
-          const hit = walk(item, depth + 1)
-          if (hit) return hit
-        }
-        return null
-      }
-      const obj = v as Record<string, unknown>
-      for (const key of ['sessionId', 'id', 'sessionKey']) {
-        if (typeof obj[key] === 'string') return obj[key]
-      }
-      for (const value of Object.values(obj)) {
-        const hit = walk(value, depth + 1)
-        if (hit) return hit
-      }
-      return null
-    }
-    return walk(list, 0)
-  }
-
-  /** 从 sessions.list() 返回值收集全部会话 id（Q2：liveSessionIds 数据源） */
-  function collectSessionIds(list: unknown): string[] {
-    const ids = new Set<string>()
-    const seen = new Set<unknown>()
-    const walk = (v: unknown, depth: number): void => {
-      if (v === null || typeof v !== 'object' || depth > 5 || seen.has(v)) return
-      seen.add(v)
-      if (Array.isArray(v)) {
-        for (const item of v) walk(item, depth + 1)
-        return
-      }
-      const obj = v as Record<string, unknown>
-      for (const key of ['sessionId', 'sessionKey']) {
-        if (typeof obj[key] === 'string') ids.add(obj[key])
-      }
-      for (const value of Object.values(obj)) walk(value, depth + 1)
-    }
-    walk(list, 0)
-    return [...ids]
-  }
-
   ctx.inject(['webServer'], ((scope: Scope) => {
-    probeServices()
-    sampleSessionService()
     const home = dshHome()
-    let state: WorkbenchState = buildState({ home })
-    let revision = 1
-    const sseClients = new Set<NodeJS.WritableStream>()
+    // 首个请求前可能还没建好：/state 会等待同一次构建（不阻塞宿主 boot）
+    let state: WorkbenchState | null = null
+    let revision = 0
+    let lastSignature = ''
+    let building: Promise<WorkbenchState> | null = null
+    const sseClients = new Set<unknown>()
 
-    // Q2：当前实例运行中的会话 id（sessions 服务为 profile 范围；不可用时回退空集）
-    const sessionsSvc = (ctx as unknown as { get(name: string): unknown }).get('sessions') as
-      | { list?: () => unknown }
-      | undefined
-    const liveSessionIds = (): string[] => {
-      if (!sessionsSvc?.list) return []
-      try {
-        return collectSessionIds(sessionsSvc.list())
-      } catch {
-        return []
+    const signature = (s: WorkbenchState): string => JSON.stringify({ ...s, generatedAt: '' })
+
+    const broadcast = (): void => {
+      for (const res of sseClients) {
+        const r = res as { writableEnded?: boolean; write(s: string): boolean }
+        if (r.writableEnded) {
+          sseClients.delete(res)
+          continue
+        }
+        try {
+          r.write('event: change\ndata: changed\n\n')
+        } catch {
+          sseClients.delete(res)
+        }
       }
     }
 
-    // 内容签名：宿主会周期性重写投影缓存，若聚合结果没变就不升 revision、不推 SSE
-    const signature = (s: WorkbenchState): string => JSON.stringify({ ...s, generatedAt: '' })
-    let lastSignature = signature(state)
+    /** 单飞构建：并发请求共享同一次扫描，避免事件风暴下重复解压 */
+    const buildOnce = (): Promise<WorkbenchState> => {
+      if (!building) {
+        building = buildState({ home }).finally(() => {
+          building = null
+        })
+      }
+      return building
+    }
 
-    const rebuild = () => {
+    const rebuild = async (): Promise<void> => {
       try {
-        const next = buildState({ home })
+        const next = await buildOnce()
         const sig = signature(next)
         if (sig === lastSignature) return
         state = next
         lastSignature = sig
         revision += 1
-        for (const res of sseClients) {
-          ;(res as { writableEnded?: boolean; write(s: string): boolean }).write('event: change\ndata: changed\n\n')
-        }
+        broadcast()
       } catch {
         // R5：重建失败保留旧快照，不崩宿主
       }
@@ -179,7 +84,7 @@ export function apply(ctx: Context): void {
     let timer: ReturnType<typeof setTimeout> | null = null
     const scheduleRebuild = () => {
       if (timer) clearTimeout(timer)
-      timer = setTimeout(rebuild, SSE_DEBOUNCE_MS)
+      timer = setTimeout(() => void rebuild(), SSE_DEBOUNCE_MS)
     }
     const watchRoots = [
       'sessions',
@@ -231,7 +136,14 @@ export function apply(ctx: Context): void {
         scope.webServer.register({
           kind: 'exact',
           path: '/dsh-overview/state',
-          handler: (_req, res) => json(res, 200, { revision, liveSessionIds: liveSessionIds(), ...state }),
+          handler: async (_req, res) => {
+            if (!state) await rebuild()
+            if (!state) {
+              json(res, 503, { ok: false, error: 'state unavailable' })
+              return
+            }
+            json(res, 200, { revision, ...state })
+          },
         }),
       'dsh-overview /state',
     )
@@ -253,9 +165,19 @@ export function apply(ctx: Context): void {
               connection: 'keep-alive',
             })
             r.write(`event: hello\ndata: ${JSON.stringify({ revision })}\n\n`)
-            sseClients.add(r as unknown as NodeJS.WritableStream)
-            const release = () => sseClients.delete(r as unknown as NodeJS.WritableStream)
-            ;(r as unknown as { on: (ev: string, fn: () => void) => void }).on('close', release)
+            sseClients.add(r)
+            const heartbeat = setInterval(() => {
+              try {
+                r.write(`: ping ${Date.now()}\n\n`)
+              } catch {
+                release()
+              }
+            }, SSE_HEARTBEAT_MS)
+            const release = () => {
+              clearInterval(heartbeat)
+              sseClients.delete(r)
+            }
+            r.on('close', release)
           },
         }),
       'dsh-overview /events',
@@ -323,7 +245,7 @@ export function apply(ctx: Context): void {
               } catch (error) {
                 result.warnings.push(`archive cache purge failed: ${String(error)}`)
               }
-              rebuild()
+              await rebuild()
               json(res, 200, { ok: true, ...result })
             } catch (error) {
               const message = error instanceof Error ? error.message : String(error)
@@ -334,32 +256,8 @@ export function apply(ctx: Context): void {
       'dsh-overview POST /session/delete',
     )
 
-    // 插桩通道：client 上报运行时服务面（POST），宿主服务面探测结果共享本日志（GET）
-    scope.effect(
-      () =>
-        scope.webServer.register({
-          kind: 'exact',
-          path: '/dsh-overview/_debug',
-          handler: (req, res) => {
-            const q = req as { method?: string; on(ev: string, fn: (c?: Buffer) => void): void }
-            if (q.method === 'POST') {
-              const chunks: Buffer[] = []
-              q.on('data', (c?: Buffer) => c && chunks.push(c))
-              q.on('end', () => {
-                try {
-                  debugLog.push(JSON.parse(Buffer.concat(chunks).toString('utf-8') || '{}'))
-                } catch {
-                  debugLog.push({ unparsed: Buffer.concat(chunks).toString('utf-8').slice(0, 2000) })
-                }
-                json(res, 204, null)
-              })
-            } else {
-              json(res, 200, debugLog)
-            }
-          },
-        }),
-      'dsh-overview /_debug',
-    )
+    // 启动即预热一次（异步，不阻塞 webServer 注册）；失败等首个 /state 请求再试
+    void rebuild()
   }) as unknown as (ctx: Context) => void)
 }
 

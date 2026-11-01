@@ -60,7 +60,7 @@ export async function deleteSession(sessionId: string): Promise<DeleteSessionRes
 
 // ---------- 派生工具（L1/L2 共用的口径，集中在一处避免口径漂移） ----------
 
-/** 2 小时内有活动视为"运行中"——仅在宿主未提供 liveSessionIds 时（dev mock/CLI）兜底 */
+/** 2 小时内有活动视为"运行中"——仅在客户端会话快照未就绪时（dev mock/CLI）兜底 */
 export const RUNNING_WINDOW_MS = 2 * 3600_000
 
 export interface SessionGroups {
@@ -101,11 +101,31 @@ export function projectLiveness(project: ProjectState, now = Date.now(), liveIds
   return 'quiet'
 }
 
-/** 会话内待办计数（rows.todos.val 的内部结构待 R6 解析，当前恒 0；面板显示空态） */
-export function todoCount(_session: SessionMeta): number {
-  return 0
+/** 单据待办里未完成的条目数（R6：rows.todos.val 解析结果） */
+export function todoCount(session: SessionMeta): number {
+  return session.todos.filter((t) => t.status !== 'completed').length
 }
 
 export function projectTodoCount(project: ProjectState): number {
   return project.sessions.reduce((sum, s) => sum + todoCount(s), 0)
+}
+
+export interface ProjectTodo {
+  sessionId: string
+  sessionTitle: string | null
+  content: string
+  status: string
+}
+
+/** 项目待办明细：按会话分组展开，未完成的排前面（Detail 侧栏用） */
+export function projectTodos(project: ProjectState, limit = 20): ProjectTodo[] {
+  const rows: ProjectTodo[] = []
+  for (const s of project.sessions) {
+    for (const t of s.todos) {
+      if (t.status === 'completed') continue
+      rows.push({ sessionId: s.id, sessionTitle: s.title, content: t.content, status: t.status })
+    }
+  }
+  rows.sort((a, b) => (a.status === 'in_progress' ? -1 : 0) - (b.status === 'in_progress' ? -1 : 0))
+  return rows.slice(0, limit)
 }
