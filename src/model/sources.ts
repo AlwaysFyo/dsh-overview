@@ -114,6 +114,25 @@ export function readArchiveRecords(dir: string): SourceResult<ProjcacheRecord[]>
   return { data, warnings }
 }
 
+/**
+ * 会话头解析缓存：键为文件绝对路径，值为 (size:mtime) 指纹 + 解析结果。
+ *
+ * 为什么需要：转录文件是 zstd 压缩的整段 jsonl，而头部只需要第一行。
+ * 实测本机 47 个会话共 58 MB（单文件最大 13.5 MB），每次整文件解压约 520 ms，
+ * 且跑在宿主事件循环上（watch 回调）。宿主会周期性重写投影缓存并触发重建，
+ * 未变化的文件必须按指纹跳过，否则每次重建都在重复解压同一批大文件。
+ */
+interface HeadCacheEntry {
+  key: string
+  info: SessionFileInfo | null
+}
+const headCache = new Map<string, HeadCacheEntry>()
+
+/** 测试用：清空缓存（避免跨用例串味） */
+export function clearSessionHeadCache(): void {
+  headCache.clear()
+}
+
 /** 4. sessions/<slug>/<dir>/session.v4.jsonl.zstd → 会话头 + 文件 mtime */
 export function readSessionHeads(root: string): SourceResult<SessionFileInfo[]> {
   const warnings: string[] = []
@@ -121,30 +140,48 @@ export function readSessionHeads(root: string): SourceResult<SessionFileInfo[]> 
     return { data: [], warnings: [`sessions 目录不存在: ${root}`] }
   }
   const data: SessionFileInfo[] = []
+  const seen = new Set<string>()
   for (const slug of readdirSync(root)) {
     const slugPath = join(root, slug)
     if (!statSync(slugPath).isDirectory()) continue
     for (const dir of readdirSync(slugPath)) {
       const file = join(slugPath, dir, 'session.v4.jsonl.zstd')
       if (!existsSync(file)) continue
+      seen.add(file)
+      let fingerprint = ''
       try {
+        const st = statSync(file)
+        fingerprint = `${st.size}:${Math.round(st.mtimeMs)}`
+        const cached = headCache.get(file)
+        if (cached && cached.key === fingerprint) {
+          if (cached.info) data.push({ ...cached.info, fileMtime: st.mtimeMs })
+          continue
+        }
         const firstLine = zstdDecompressSync(readFileSync(file))
           .toString('utf-8')
           .split('\n')[0] ?? ''
         const head = JSON.parse(firstLine) as SessionHead
         if (typeof head?.id === 'string' && typeof head?.createdAt === 'number') {
-          data.push({
+          const info: SessionFileInfo = {
             dirName: `${slug}/${dir}`,
             head,
-            fileMtime: statSync(file).mtimeMs,
-          })
+            fileMtime: st.mtimeMs,
+          }
+          headCache.set(file, { key: fingerprint, info })
+          data.push(info)
         } else {
+          headCache.set(file, { key: fingerprint, info: null })
           warnings.push(`会话头字段缺失: ${slug}/${dir}`)
         }
       } catch (err) {
+        if (fingerprint) headCache.set(file, { key: fingerprint, info: null })
         warnings.push(`会话文件跳过 ${slug}/${dir}: ${(err as Error).message}`)
       }
     }
+  }
+  // 已删除的会话文件不留缓存
+  for (const cachedPath of headCache.keys()) {
+    if (!seen.has(cachedPath)) headCache.delete(cachedPath)
   }
   return { data, warnings }
 }
