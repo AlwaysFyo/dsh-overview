@@ -1,18 +1,18 @@
 {
-  "name": "dsh-workbench",
-  "version": "0.1.6",
+  "name": "dsh-overview",
+  "version": "0.1.7",
   "private": true,
   "type": "module",
-  "description": "DSH 工作台插件：以工作区项目为维度的会话/任务仪表盘",
+  "description": "DSH 全景概览插件：以工作区项目为维度的会话/任务仪表盘",
   "license": "MIT",
   "author": "AlwaysFyo",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/AlwaysFyo/dsh-workbench.git"
+    "url": "git+https://github.com/AlwaysFyo/dsh-overview.git"
   },
-  "homepage": "https://cnb.cool/one-mugen/dsh-workbench",
+  "homepage": "https://cnb.cool/one-mugen/dsh-overview",
   "bugs": {
-    "url": "https://github.com/AlwaysFyo/dsh-workbench/issues"
+    "url": "https://github.com/AlwaysFyo/dsh-overview/issues"
   },
   "main": "./lib/index.js",
   "exports": {

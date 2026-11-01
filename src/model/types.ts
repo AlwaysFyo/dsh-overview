@@ -1,5 +1,5 @@
 /**
- * dsh-workbench 数据模型。
+ * dsh-overview 数据模型。
  *
  * 数据源（全部只读，见 docs/design.md 与 PRD §6）：
  *  1. ~/.dsh/storages/workspace.json                    工作区注册表

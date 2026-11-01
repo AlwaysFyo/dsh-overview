@@ -1,8 +1,8 @@
-# dsh-workbench 设计方案
+# dsh-overview 设计方案
 
-> 以工作区项目为维度的 dsh harness 工作台插件，聚合项目状态、会话历史与任务。
+> 以工作区项目为维度的 dsh harness 全景概览插件，聚合项目状态、会话历史与任务。
 
-> **2026-11-01 状态**：PRD v0.3 已定稿（`docs/dsh-workbench-prd.html`，UI 原型见 `docs/dsh-workbench-ui.html`），本文档部分内容已被其取代，以 PRD 为准：
+> **2026-11-01 状态**：PRD v0.3 已定稿（`docs/dsh-overview-prd.html`，UI 原型见 `docs/dsh-overview-ui.html`），本文档部分内容已被其取代，以 PRD 为准：
 > 1. **托管方式**：改为 DSH 桌面端插件宿主内嵌视图（webview）；独立本地 server（REST+SSE）降级为宿主不支持 webview 时的兜底方案。
 > 2. **待办看板与手动任务已砍掉**：工作台定位收敛为"项目仪表盘 + 续接入口"，不是 TODO 工具——待办靠会话推导，只勾选不新建。
 > 3. **数据源以 PRD §6 为准**：`~/.dsh/storages/workspace.json`（含 sessionIds / archivedSessionIds / pinnedSessionIds）、`~/.dsh/sessions/<工作区路径编码>/`、归档缓存 `session_projcache_archive_manager_v2`、`.dshw-usage.json`。

@@ -13,7 +13,7 @@ import { dirname, join, relative } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const root = join(dirname(fileURLToPath(import.meta.url)), '..')
-const pkgName = 'dsh-workbench'
+const pkgName = 'dsh-overview'
 const outFile = join(root, 'lib/client.js')
 
 const result = await build({

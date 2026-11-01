@@ -1,9 +1,9 @@
-# dsh-workbench bundle patch：安装（dsh plugin --profile <name> add dsh-workbench）
+# dsh-overview bundle patch：安装（dsh plugin --profile <name> add dsh-overview）
 # 或 --patch 挂载时被合并的一层，只做一件事——把宿主侧插件挂进 loader。
 #
 # ⚠ 开发期安装必须用 tarball（pnpm pack 后 add .tgz），
 # 不要用 link/file: 直链本目录——pnpm 失败回滚清理 node_modules 时
 # 会穿过目录联接删掉项目本体（2026-11-01 已实际发生过一次）。
 - insert:
-    - id: dsh-workbench
-      name: 'dsh-workbench'
+    - id: dsh-overview
+      name: 'dsh-overview'

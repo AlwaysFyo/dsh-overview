@@ -43,7 +43,7 @@ function fmtNum(n: number): string {
 }
 
 function printPretty(state: WorkbenchState): void {
-  console.log(`\ndsh-workbench snapshot @ ${new Date(state.generatedAt).toLocaleString()}`)
+  console.log(`\ndsh-overview snapshot @ ${new Date(state.generatedAt).toLocaleString()}`)
   console.log('='.repeat(78))
 
   for (const project of state.projects) {

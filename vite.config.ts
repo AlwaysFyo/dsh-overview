@@ -12,7 +12,7 @@ export default defineConfig({
     port: 5174,
     open: '/web/',
     // proxy: {
-    //   '/dsh-workbench': 'http://127.0.0.1:3080',
+    //   '/dsh-overview': 'http://127.0.0.1:3080',
     // },
   },
 })

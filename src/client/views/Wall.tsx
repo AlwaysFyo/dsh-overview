@@ -25,7 +25,7 @@ export function Wall({ state, onOpen }: { state: WorkbenchState; onOpen: (id: st
       <section>
         <div className="wb-empty-state">
           <h2>还没有工作区</h2>
-          <p>在 DSH 中打开一个工作区并开始会话，全景看板会自动把它聚合到这里。</p>
+          <p>在 DSH 中打开一个工作区并开始会话，全景概览会自动把它聚合到这里。</p>
           <button type="button" className="wb-ghost-btn" onClick={() => alert('由宿主提供新建会话入口（联调期接入）')}>
             新建会话
           </button>

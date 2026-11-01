@@ -1,5 +1,5 @@
 /**
- * dsh-workbench 宿主侧插件。
+ * dsh-overview 宿主侧插件。
  *
  * 职责：读取 ~/.dsh 存储聚合出 WorkbenchState，通过宿主 webServer 暴露
  * REST + SSE，供渲染端工作台 UI 消费。对宿主数据零写入。
@@ -14,7 +14,7 @@ import { dshHome } from '../model/paths.ts'
 import type { WorkbenchState } from '../model/types.ts'
 import { deleteSessionArtifacts, purgeArchiveCache, type DeleteSessionResult } from './deleteSession.ts'
 
-export const name = 'dsh-workbench'
+export const name = 'dsh-overview'
 
 interface WorkbenchWebServer {
   register(route: { kind: 'exact' | 'prefix'; path: string; handler: (req: unknown, res: unknown) => void | Promise<void> }): () => void
@@ -198,7 +198,7 @@ export function apply(ctx: Context): void {
     scope.effect(() => () => {
       for (const w of watchers) w.close()
       if (timer) clearTimeout(timer)
-    }, 'dsh-workbench watchers')
+    }, 'dsh-overview watchers')
 
     const json = (res: unknown, status: number, body: unknown) => {
       const r = res as { writeHead(s: number, h: Record<string, string>): unknown; end(s: string): unknown }
@@ -230,17 +230,17 @@ export function apply(ctx: Context): void {
       () =>
         scope.webServer.register({
           kind: 'exact',
-          path: '/dsh-workbench/state',
+          path: '/dsh-overview/state',
           handler: (_req, res) => json(res, 200, { revision, liveSessionIds: liveSessionIds(), ...state }),
         }),
-      'dsh-workbench /state',
+      'dsh-overview /state',
     )
 
     scope.effect(
       () =>
         scope.webServer.register({
           kind: 'exact',
-          path: '/dsh-workbench/events',
+          path: '/dsh-overview/events',
           handler: (_req, res) => {
             const r = res as {
               writeHead(s: number, h: Record<string, string>): unknown
@@ -258,7 +258,7 @@ export function apply(ctx: Context): void {
             ;(r as unknown as { on: (ev: string, fn: () => void) => void }).on('close', release)
           },
         }),
-      'dsh-workbench /events',
+      'dsh-overview /events',
     )
 
     // 会话永久删除：宿主侧物理清理（转录目录 + 投影缓存 + 工作区记账），
@@ -267,7 +267,7 @@ export function apply(ctx: Context): void {
       () =>
         scope.webServer.register({
           kind: 'exact',
-          path: '/dsh-workbench/session/delete',
+          path: '/dsh-overview/session/delete',
           handler: async (req, res) => {
             const q = req as {
               method?: string
@@ -331,7 +331,7 @@ export function apply(ctx: Context): void {
             }
           },
         }),
-      'dsh-workbench POST /session/delete',
+      'dsh-overview POST /session/delete',
     )
 
     // 插桩通道：client 上报运行时服务面（POST），宿主服务面探测结果共享本日志（GET）
@@ -339,7 +339,7 @@ export function apply(ctx: Context): void {
       () =>
         scope.webServer.register({
           kind: 'exact',
-          path: '/dsh-workbench/_debug',
+          path: '/dsh-overview/_debug',
           handler: (req, res) => {
             const q = req as { method?: string; on(ev: string, fn: (c?: Buffer) => void): void }
             if (q.method === 'POST') {
@@ -358,7 +358,7 @@ export function apply(ctx: Context): void {
             }
           },
         }),
-      'dsh-workbench /_debug',
+      'dsh-overview /_debug',
     )
   }) as unknown as (ctx: Context) => void)
 }

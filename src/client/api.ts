@@ -18,7 +18,7 @@ const USE_MOCK =
 
 export const fetchState: FetchState = async () => {
   if (USE_MOCK) return mockState()
-  const res = await fetch('/dsh-workbench/state', { cache: 'no-store' })
+  const res = await fetch('/dsh-overview/state', { cache: 'no-store' })
   if (!res.ok) throw new Error(`state ${res.status}`)
   return (await res.json()) as WorkbenchState
 }
@@ -43,7 +43,7 @@ export interface DeleteSessionResponse {
  */
 export async function deleteSession(sessionId: string): Promise<DeleteSessionResponse> {
   if (USE_MOCK) return { ok: true, deleted: true }
-  const res = await fetch('/dsh-workbench/session/delete', {
+  const res = await fetch('/dsh-overview/session/delete', {
     method: 'POST',
     headers: { 'content-type': 'application/json' },
     body: JSON.stringify({ sessionId }),

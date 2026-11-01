@@ -68,7 +68,7 @@ export function WorkbenchApp({
     if (!IS_HOSTED) return
     let es: EventSource | null = null
     try {
-      es = new EventSource('/dsh-workbench/events')
+      es = new EventSource('/dsh-overview/events')
       es.addEventListener('change', () => refresh())
     } catch {
       /* SSE 不可用则依赖手动刷新 */
@@ -123,7 +123,7 @@ export function WorkbenchApp({
           <span className="wb-brand-mark">
             <i />
           </span>
-          全景看板
+          全景概览
         </div>
         <div className="wb-search">
           <svg viewBox="0 0 24 24" aria-hidden="true">

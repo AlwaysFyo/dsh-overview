@@ -6,7 +6,7 @@ import { homedir, tmpdir } from 'node:os'
 
 const BASE = 'http://127.0.0.1:3099'
 let buf = ''
-const curl = spawn('curl', ['-s', '-N', '--max-time', '6', `${BASE}/dsh-workbench/events`])
+const curl = spawn('curl', ['-s', '-N', '--max-time', '6', `${BASE}/dsh-overview/events`])
 curl.stdout.on('data', (d) => (buf += d))
 curl.stderr.on('data', (d) => (buf += d))
 

@@ -84,7 +84,7 @@ interface RegistryLike {
 
 const warn = (ctx: CtxLike, message: string): void => {
   try {
-    ctx.logger?.warn(`dsh-workbench: ${message}`)
+    ctx.logger?.warn(`dsh-overview: ${message}`)
   } catch {
     /* logger 不可用不影响删除 */
   }

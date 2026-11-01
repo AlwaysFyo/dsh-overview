@@ -1,5 +1,5 @@
 /**
- * dsh-workbench 渲染端 client half（dsh.client 入口 → lib/client.js）。
+ * dsh-overview 渲染端 client half（dsh.client 入口 → lib/client.js）。
  *
  * 宿主加载契约（2026-11-01 从 /plugins/?? 聚合响应逆向确认）：
  * 服务端把本文件包进 __ModuleLoader__.load({id, factory:(require)=>{...}})，
@@ -45,7 +45,7 @@ type WorkspacesApi = {
   unarchiveSession?: (id: string) => Promise<unknown>
 } | null
 
-export const name = 'dsh-workbench'
+export const name = 'dsh-overview'
 // uiWorkspace: 续接跳转/归档/导航总入口；remote: workspaceRegistry（真删除）
 export const inject = ['slots', 'uiWorkspace', 'remote']
 
@@ -116,27 +116,27 @@ export function apply(ctx: ClientCtx): void {
 
   ctx.effect(() => {
     const style = document.createElement('style')
-    style.id = 'dsh-workbench-style'
-    style.setAttribute('data-plugin', 'dsh-workbench')
+    style.id = 'dsh-overview-style'
+    style.setAttribute('data-plugin', 'dsh-overview')
     style.textContent = themeCss
     document.head.appendChild(style)
     return () => style.remove()
-  }, 'dsh-workbench theme')
+  }, 'dsh-overview theme')
 
   // 左侧栏格子：一枚小图标（对齐官方行高与图标规格）
   ctx.slots.inject('sidebar.panellist', () =>
     ctx.slots.register(
-      { name: 'sidebar.panellist', id: 'workbench', order: 2, label: '全景看板' },
+      { name: 'sidebar.panellist', id: 'overview', order: 2, label: '全景概览' },
       () => createElement(SidebarIcon),
     ),
   )
 
   // 主区域整页面板：key 与侧栏格子的 id 对应，点击格子即点亮
   ctx.slots.inject('main', () =>
-    ctx.slots.register({ name: 'main', key: 'workbench' }, () =>
+    ctx.slots.register({ name: 'main', key: 'overview' }, () =>
       createElement(
         'div',
-        { style: { height: '100%', overflow: 'auto' }, 'data-dsh-workbench': 'page' },
+        { style: { height: '100%', overflow: 'auto' }, 'data-dsh-overview': 'page' },
         createElement(WorkbenchApp, { getUiWorkspace, getWorkspaces }),
       ),
     ),
@@ -145,7 +145,7 @@ export function apply(ctx: ClientCtx): void {
   // 续接草稿注入器：常驻会话输入框 dock（Q5）
   ctx.slots.inject('conversation.input.dock', () =>
     ctx.slots.register(
-      { name: 'conversation.input.dock', id: 'workbench-resume-draft', order: 100 },
+      { name: 'conversation.input.dock', id: 'overview-resume-draft', order: 100 },
       (props?: unknown) => createElement(ResumeDraftInjector, (props ?? {}) as DockProps),
     ),
   )

@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>PRD · DSH 工作台插件</title>
+<title>PRD · DSH 全景概览插件</title>
 <style>
   :root {
     --bg: #f6f5f1; --surface: #ffffff; --surface2: #f1efe8;
@@ -72,7 +72,7 @@
 <div class="wrap">
 
 <header class="doc">
-  <h1>PRD · DSH 工作台插件（dsh-workbench）</h1>
+  <h1>PRD · DSH 全景概览插件（dsh-overview）</h1>
   <div class="meta">
     <span>版本 v0.3 · 定稿稿</span>
     <span>状态：待评审</span>
@@ -162,7 +162,7 @@
 <div class="card req-item">
   <div class="req-head"><strong>R2 · 项目级归档标记（status.json）</strong><span class="badge b-p0">P0</span><span class="tag">US-5 / US-6</span></div>
   <ul>
-    <li>存储：<code>~/.dsh/dsh-workbench/status.json</code>，结构 <code>{ "schemaVersion": 1, "&lt;工作区 path&gt;": { "archived": bool, "archivedAt": ISO 时间 } }</code>。</li>
+    <li>存储：<code>~/.dsh/dsh-overview/status.json</code>，结构 <code>{ "schemaVersion": 1, "&lt;工作区 path&gt;": { "archived": bool, "archivedAt": ISO 时间 } }</code>。</li>
     <li>交互：卡片右键 / 悬浮菜单提供「归档 / 恢复」；已归档卡片可一键恢复。</li>
     <li>自动建议：项目 30 天无活动且无运行中会话时，卡片角落出现「归档？」轻提示，<b>仅建议，点击才生效，绝不自动归档</b>。</li>
   </ul>
@@ -205,7 +205,7 @@
   <div class="req-head"><strong>R6 · 待办提取与勾选</strong><span class="badge b-p1">P1</span><span class="tag">US-4</span></div>
   <ul>
     <li>来源优先级：① 宿主 todo 工具事件（可订阅则监听）；② 会话产物解析（markdown checklist 等）兜底；③ 手动添加作为补充。</li>
-    <li>待办归属项目 = 产生它的会话所在项目；勾选完成状态写入 <code>dsh-workbench/todos.json</code>（第二处写入点）。</li>
+    <li>待办归属项目 = 产生它的会话所在项目；勾选完成状态写入 <code>dsh-overview/todos.json</code>（第二处写入点）。</li>
   </ul>
   <div class="ac"><b>AC-10</b>：Given 会话内产生 3 条 todo，When 打开该项目详情页，Then 待办面板收录 ≥ 80% 且标注来源会话。</div>
 </div>
@@ -239,8 +239,8 @@
   <tr class="req-item"><td><code>~/.dsh/storages/session_projcache_archive_manager_v2</code></td><td>只读</td><td>归档会话数据（详情页「归档」tab）</td></tr>
   <tr class="req-item"><td><code>~/.dsh/.dshw-usage.json</code></td><td>只读</td><td>token 用量（粒度待验证，见开放问题 Q1）</td></tr>
   <tr class="req-item"><td>git 仓库（只读 status）</td><td>只读</td><td>分支名、未提交文件数（P1）</td></tr>
-  <tr class="req-item"><td><code>~/.dsh/dsh-workbench/status.json</code></td><td><b>写入</b></td><td>项目归档标记（唯一 P0 写入点，可逆、可自愈）</td></tr>
-  <tr class="req-item"><td><code>~/.dsh/dsh-workbench/todos.json</code></td><td><b>写入</b>（P1 起）</td><td>待办勾选状态（提取内容仍来自会话）</td></tr>
+  <tr class="req-item"><td><code>~/.dsh/dsh-overview/status.json</code></td><td><b>写入</b></td><td>项目归档标记（唯一 P0 写入点，可逆、可自愈）</td></tr>
+  <tr class="req-item"><td><code>~/.dsh/dsh-overview/todos.json</code></td><td><b>写入</b>（P1 起）</td><td>待办勾选状态（提取内容仍来自会话）</td></tr>
 </table>
 <p><b>核心原则</b>：状态靠推导，不靠手工维护——除上述两处插件自有文件外，一切展示数据来自宿主现有存储的只读推导。两个自有文件（status.json / todos.json）均携带 <code>schemaVersion</code> 字段，便于后续结构演进与迁移。</p>
 
@@ -284,7 +284,7 @@
   </ul>
 </div>
 
-<footer>PRD · dsh-workbench · v0.3 · 依据 feature-spec 模板产出 · 深浅主题与搜索过滤已内置</footer>
+<footer>PRD · dsh-overview · v0.3 · 依据 feature-spec 模板产出 · 深浅主题与搜索过滤已内置</footer>
 </div>
 
 <script>

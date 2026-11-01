@@ -1,6 +1,6 @@
 // 单一来源：client half 与 Vite dev 沙盒共用（由 theme.css 迁移）
-export const themeCss = `/* dsh-workbench 设计 tokens 与组件样式
-   移植自 docs/dsh-workbench-ui.html 原型（克制工业实用风）。
+export const themeCss = `/* dsh-overview 设计 tokens 与组件样式
+   移植自 docs/dsh-overview-ui.html 原型（克制工业实用风）。
    宿主内嵌时，:root 段替换为 --dsw-alias-* 变量映射。 */
 
 :root {
