@@ -60,8 +60,8 @@
         "release"
       ],
       "createdAt": 1793522329318,
-      "updatedAt": 1793524159796,
-      "description": "已完成：src/ 内 TEMP-DEBUG / __wbTest / [dbg] 全部清零（0.1.5 起）；README 数据层与宿主侧说明、PRD R2 实现变更、docs/design.md 归档真相修正均已落盘；statusStore.ts 已删除。\n剩余：① 删除根目录 0 字节杂散文件 m[1])；② git init + 首次基线提交（当前无版本控制，曾因 pnpm 目录联接丢过项目）；③ 删除过期脚本 scripts/check-archive-state.mjs（依赖已不存在的 TEMP/wb-live2.json）；④ README 补「改动后必须升版本 build+pack+install 并核哈希」的发布流程。"
+      "updatedAt": 1793525129841,
+      "description": "已完成：src/ 内 TEMP-DEBUG / __wbTest / [dbg] 全部清零（0.1.5 起）；README 数据层、宿主侧、安装流程、双远端说明已更新；PRD R2 实现变更与 docs/design.md 归档真相已修正；statusStore.ts 已删除；杂散文件 m[1]) 已删；git init + 基线提交 681a927 并双推到 CNB/GitHub。\n剩余：① 删除过期脚本 scripts/check-archive-state.mjs（依赖已不存在的 TEMP/wb-live2.json）；② scripts/ 下 17 个 probe-*.mjs 是否保留/归入 dev 目录待定。"
     },
     {
       "id": "card-f9a409ba-4acf-4d1f-bff5-3ecbb971e254",
@@ -112,6 +112,22 @@
       ],
       "createdAt": 1793524143639,
       "updatedAt": 1793524143639
+    },
+    {
+      "id": "card-1ba979fa-d445-4c4e-93f2-2010e1e6fb5e",
+      "title": "发布仓库：CNB one-mugen/dsh-workbench + GitHub AlwaysFyo/dsh-workbench（公开、双远端同步）",
+      "summary": "git init（main）+ 基线提交 681a927（59 个文件，.gitignore 追加 .refs/，删除 0 字节杂散文件 m[1])）；通过 CNB OpenAPI POST /one-mugen/-/repos 创建公开仓库 one-mugen/dsh-workbench（201），并用 gh repo create 创建公开仓库 AlwaysFyo/dsh-workbench；origin 指 CNB，pushURL 同时含 CNB 与 GitHub，另设只读远端 github。已双推 681a927 与 README 更新 e54ae10，两端 main 同哈希；关闭 credential.helper 后匿名 clone CNB 成功（59 文件），GitHub 可见性 PUBLIC。README 增补双远端说明与安装流程。",
+      "rationale": "用户要求把项目上传到 CNB 并同步到 GitHub、开放仓库。此前项目从未 git init（无版本历史，卡片收尾项之一），也没有任何远端；需要一个可重复、不依赖 CNB 私有 CI 的双写方式，否则后续每次改动都要记得分别 push 两个平台，迟早漂移。",
+      "rejected": "没有采用 CNB Git Sync 插件做平台级自动同步——它需要在 CNB 仓库里保存 GitHub PAT 并配置仓库映射，属于把第三方凭据交给平台，而插件本身没有写权限诉求；也没有只推 CNB 让用户手动镜像——那正是会漂移的做法。项目目录不是 git 仓库的历史状态也一并结束：先建立基线提交，再发布。",
+      "sourceSessionId": "session-e42b7310-0c3f-4303-98a9-ebf2629c9f21",
+      "status": "done",
+      "tags": [
+        "release",
+        "git",
+        "publish"
+      ],
+      "createdAt": 1793525114581,
+      "updatedAt": 1793525114581
     }
   ]
 }
