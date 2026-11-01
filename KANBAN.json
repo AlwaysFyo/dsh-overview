@@ -180,6 +180,20 @@
       ],
       "createdAt": 1793528199068,
       "updatedAt": 1793528199068
+    },
+    {
+      "id": "card-cba2c1ec-09f8-4893-846b-2e869588369d",
+      "title": "性能：会话头解析加文件指纹缓存（重建 486ms → 10ms）",
+      "status": "done",
+      "tags": [
+        "perf",
+        "model"
+      ],
+      "createdAt": "2026-11-01T10:37:46.337Z",
+      "updatedAt": "2026-11-01T10:37:46.338Z",
+      "summary": "src/model/sources.ts 的 readSessionHeads 增加进程内 headCache，以 (size:mtimeMs) 指纹跳过未变化文件，删除的文件同步淘汰；导出 clearSessionHeadCache() 供测试隔离。实测本机 47 会话/58MB：冷 486ms → 热 10ms。版本 0.1.10 已构建安装（host 需重启生效）。",
+      "rationale": "宿主周期重写投影缓存会触发 rebuild()，而每次重建都同步整文件解压 58MB 只为读第一行头信息，跑在宿主事件循环上，会话规模增长后会造成明显卡顿。",
+      "rejected": "流式解压只读首行（需把 readSessionHeads 改异步，波及 buildState/CLI/测试签名，收益只在进程启动一次）；把头部写进独立索引文件（违背对宿主数据零写入）；依赖 projcache 标题（会周期性重写且并非每会话都有记录）。"
     }
   ]
 }
