@@ -51,17 +51,18 @@
     {
       "id": "card-9eb5e46a-df5d-49a4-b27f-c3932ff4a5bc",
       "title": "发布前收尾：清 TEMP-DEBUG、清杂散文件、初始化 git、更新 README/PRD 状态",
-      "rationale": "工作目录不是 git 仓库（曾因 pnpm 目录联接回滚丢过项目本体），无任何版本历史；src/client/plugin.tsx、views/Detail.tsx 里遍布 TEMP-DEBUG 探针、window.__wbTest 与 alert('[dbg] done')；根目录有 0 字节杂散文件 `m[1])`；README 仍停留在\"第 1 步完成\"；scripts/check-archive-state.mjs 依赖已删除的 TEMP 文件。这些不清理无法生成可发布的 tarball。",
-      "rejected": "不在功能未定时先做 git 提交历史——先初始化仓库并把当前可运行状态作为基线提交，后续每个修复单独提交，避免又变成一团无法回溯的快照。",
+      "rationale": "发布前收尾项是发布评审发现的遗留：TEMP-DEBUG 探针会向宿主 /_debug 写日志、杂散文件与过期脚本污染根目录、项目无版本控制导致无法回滚与公开。现在改为公开双远端仓库，这些遗留从\"以后清理\"变成\"每次提交都带着\"，必须在发布周期内关闭。",
+      "rejected": "保留 probe-*.mjs 作为调查素材（它们依赖已删除的 TEMP/、.refs 与旧路由，运行即报 ENOENT，留着只会误导读代码的人）；保留 statusStore.ts（无调用方，已随 R2 改口径删除）。",
       "sourceSessionId": "session-e42b7310-0c3f-4303-98a9-ebf2629c9f21",
-      "status": "todo",
+      "status": "done",
       "tags": [
         "hygiene",
         "release"
       ],
       "createdAt": 1793522329318,
-      "updatedAt": 1793525129841,
-      "description": "已完成：src/ 内 TEMP-DEBUG / __wbTest / [dbg] 全部清零（0.1.5 起）；README 数据层、宿主侧、安装流程、双远端说明已更新；PRD R2 实现变更与 docs/design.md 归档真相已修正；statusStore.ts 已删除；杂散文件 m[1]) 已删；git init + 基线提交 681a927 并双推到 CNB/GitHub。\n剩余：① 删除过期脚本 scripts/check-archive-state.mjs（依赖已不存在的 TEMP/wb-live2.json）；② scripts/ 下 17 个 probe-*.mjs 是否保留/归入 dev 目录待定。"
+      "updatedAt": 1793527238361,
+      "description": "已完成：src/ 内 TEMP-DEBUG / __wbTest / [dbg] 全部清零（0.1.5 起）；README 数据层、宿主侧、安装流程、双远端说明已更新；PRD R2 实现变更与 docs/design.md 归档真相已修正；statusStore.ts 已删除；杂散文件 m[1]) 已删；git init + 基线提交 681a927 并双推到 CNB/GitHub。\n剩余：① 删除过期脚本 scripts/check-archive-state.mjs（依赖已不存在的 TEMP/wb-live2.json）；② scripts/ 下 17 个 probe-*.mjs 是否保留/归入 dev 目录待定。",
+      "summary": "src/ 内 TEMP-DEBUG / __wbTest / [dbg] 全部清零（含 Detail.tsx 的 dbg 上报与 alert、plugin.tsx 的 ctxShape 探针与全局钩子）；删除根目录 0 字节杂散文件 m[1])；git init -b main 并建立双远端（CNB origin + GitHub 只读远端，pushURL 双写）；README 重写为 1–4 步落地 + tarball 安装流程，PRD R2 增加实现变更段落，docs/design.md 修正归档真相误判；清理 9 个一次性 probe 脚本与过期 check-archive-state.mjs（保留 build-client、gen-icons-preview、read-debug、sse-e2e-test）；README/PRD/UI 原型标题统一为「全景概览」。"
     },
     {
       "id": "card-f9a409ba-4acf-4d1f-bff5-3ecbb971e254",
@@ -145,6 +146,23 @@
       ],
       "createdAt": 1793526305358,
       "updatedAt": 1793526305358
+    },
+    {
+      "id": "card-17a7756b-90bb-412a-ab6e-af24a11fd996",
+      "title": "改名为 dsh-overview（全景概览）：包名、路由、slot id、文档与两个远端仓库",
+      "summary": "package.json name 改 dsh-overview（repository/homepage/bugs 同步），cordis.patch.yml bundle id/name 改 dsh-overview；宿主路由改为 /dsh-overview/{state,events,_debug,session/delete}，api.ts 同步；client slot id 改 overview / overview-resume-draft，侧栏与顶栏文案「全景概览」（保留 localStorage 键 dshw-theme 与 WorkbenchState 类型名）；docs 两个原型文件 git mv 为 dsh-overview-*.html；删除 8 个一次性 probe 脚本与过期 check-archive-state.mjs；0.1.7 构建并安装到 desktop（哈希 6E066FEB client / 40DFD48B index 与本机一致），旧 /dsh-workbench/state 返回 404、新 /dsh-overview/state 正常（12 项目 / 47 会话 / archived 3）；GitHub 仓库改名 AlwaysFyo/dsh-overview（CI 14s success），CNB 新建 one-mugen/dsh-overview 并推送，旧 CNB 仓库因根组规则不能删除，已 PATCH 描述与 archived 指向新仓库；提交 ac5ebca 双推。",
+      "rationale": "npm 上 dsh-workbench 已被同生态另一个 DSH 插件（lee259，右侧文件工作区）占用，本插件虽 private 未发布，但检索、profile 依赖与将来发布都会混淆；用户选定 dsh-overview 并把中文名从「全景看板」改为「全景概览」。改名的成本随安装方与外部引用增长，趁现在只有一个本机 profile 消费时做最便宜。",
+      "rejected": "保留原名不动（撞名且将来发布要改两次）；改为 @alwaysfyo/dsh-workbench scoped 包（仍与 lee259 撞语义）；dsh-panorama（GitHub 已有 PANORAMA 硬件屏插件，检索串味）。中文名没选「全景视图」——它读起来像\"一种视图模式\"，而产品是跨项目总览页，「全景概览」与包名 overview 更贴。",
+      "sourceSessionId": "session-e42b7310-0c3f-4303-98a9-ebf2629c9f21",
+      "status": "done",
+      "tags": [
+        "rename",
+        "release",
+        "docs",
+        "hygiene"
+      ],
+      "createdAt": 1793527227407,
+      "updatedAt": 1793527227407
     }
   ]
 }
