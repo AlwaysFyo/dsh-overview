@@ -1,0 +1,117 @@
+{
+  "version": 1,
+  "cards": [
+    {
+      "id": "card-3a50b98b-4a3d-4f65-a1ea-7bed506eb1d2",
+      "title": "修复 buildState 中 live 会话覆盖归档标记的合并缺陷",
+      "rationale": "归档不移动也不删除转录文件，因此 live 会话同样可能处于已归档状态；归档缓存只是历史投影快照，不能当\"当前已归档\"判据。唯一真相是宿主 workspace 域的 archivedSessionIds，这也让 L1 卡片、L2 页签、指标卡共用一处判据。",
+      "rejected": "未采用\"归档缓存命中即 archived\"的简单合并（会把 32 条历史遗留全算成归档，已实测导致 7 条误报），也未让宿主在归档时删除会话文件（那是宿主数据，插件只读）。",
+      "sourceSessionId": "session-e42b7310-0c3f-4303-98a9-ebf2629c9f21",
+      "status": "done",
+      "tags": [
+        "bug",
+        "model",
+        "archive"
+      ],
+      "createdAt": 1793522329302,
+      "updatedAt": 1793523158949,
+      "summary": "已修。src/model/sources.ts 新增 readHostArchivedIds() 读 workspace.json 的 global.archivedSessionIds；buildState.ts 在聚合末尾统一 `meta.archived = isArchivedInHost(meta.id)`（兼容带/不带 session- 前缀），归档缓存降级为元数据兜底（archived 默认 false），live 覆盖 archive 的合并逻辑保留但不再决定归档状态。tests/model.test.ts 改为以宿主集合为准，新增「缓存有记录但宿主未标记」「live 且宿主已归档」两用例。运行验证：/state 的 archived 从 7 降为 3，与宿主集合（OneNote 2 + Fairy-DSH 1）逐条一致。"
+    },
+    {
+      "id": "card-645c1cba-f804-4be0-866b-24176563c2b8",
+      "title": "查清 sessions.list() 返回空 → liveSessionIds 恒 0 / 运行中状态点不亮",
+      "rationale": "运行中实例 GET /dsh-workbench/state 的 liveSessionIds 恒为 []（即便当前会话正在运行）；/_debug 的 sample `sessions.list()` 也是 []，而 probe 显示 SessionStore 服务本身存在且有 list/liveEntryFor 方法。没有 liveIds，R1 状态点只能退化成 2 小时时间窗，L2 的\"进行中\"tab 也不准。需要确认 list() 的语义（是否只含本进程 enter 过的会话）以及 _debug 采样是启动时还是请求时。",
+      "rejected": "不采用\"轮询会话文件 mtime 推断运行中\"作为正式方案——那只是现有 2 小时窗口的翻版，无法区分\"刚发过消息\"与\"正在跑\"；时间窗仅保留为 liveIds 缺失时的兜底显示。",
+      "sourceSessionId": "session-e42b7310-0c3f-4303-98a9-ebf2629c9f21",
+      "status": "todo",
+      "tags": [
+        "bug",
+        "host",
+        "Q2"
+      ],
+      "createdAt": 1793522329308,
+      "updatedAt": 1793522329308
+    },
+    {
+      "id": "card-a8dd5308-3845-4b2e-b451-8469fefe1f9b",
+      "title": "决定 R2 归档口径（项目级 vs 会话级）并接线 status.json 或删除它",
+      "rationale": "宿主已提供完整且唯一的归档状态与会话管理服务，再维护一份 status.json 会形成两套真相、且项目级归档在宿主导航里没有对应落点。撤销自持状态让插件保持零私有写入，也让归档在宿主 UI 与本插件中始终一致。",
+      "rejected": "未实现项目级归档（卡片按 path 归档、30 天建议归档）——需要新增自有状态文件并定义\"归档项目\"在宿主导航里的语义，成本高且与宿主 workspace 概念冲突；也保留过 statusStore 的 session 级版本，最终因无调用方一并删除。",
+      "sourceSessionId": "session-e42b7310-0c3f-4303-98a9-ebf2629c9f21",
+      "status": "done",
+      "tags": [
+        "design",
+        "R2",
+        "needs-decision"
+      ],
+      "createdAt": 1793522329314,
+      "updatedAt": 1793523164448,
+      "summary": "口径定为「会话级归档 = 宿主 workspace 域真相，项目级归档不做」。实测 workspace.json 顶层 global 确有 archivedSessionIds（此前漏看 global，误判为没有该字段）；归档/取消归档直接委托宿主 workspaces.archiveSession(id,{stopActivity:true}) / unarchiveSession(id)，插件不再自持归档状态。src/host/statusStore.ts 已删除（grep 确认无引用）。PRD R2 增加「实现变更」说明并修正 G4 与非目标；docs/design.md 修正存储事实与写入点描述。"
+    },
+    {
+      "id": "card-9eb5e46a-df5d-49a4-b27f-c3932ff4a5bc",
+      "title": "发布前收尾：清 TEMP-DEBUG、清杂散文件、初始化 git、更新 README/PRD 状态",
+      "rationale": "工作目录不是 git 仓库（曾因 pnpm 目录联接回滚丢过项目本体），无任何版本历史；src/client/plugin.tsx、views/Detail.tsx 里遍布 TEMP-DEBUG 探针、window.__wbTest 与 alert('[dbg] done')；根目录有 0 字节杂散文件 `m[1])`；README 仍停留在\"第 1 步完成\"；scripts/check-archive-state.mjs 依赖已删除的 TEMP 文件。这些不清理无法生成可发布的 tarball。",
+      "rejected": "不在功能未定时先做 git 提交历史——先初始化仓库并把当前可运行状态作为基线提交，后续每个修复单独提交，避免又变成一团无法回溯的快照。",
+      "sourceSessionId": "session-e42b7310-0c3f-4303-98a9-ebf2629c9f21",
+      "status": "todo",
+      "tags": [
+        "hygiene",
+        "release"
+      ],
+      "createdAt": 1793522329318,
+      "updatedAt": 1793524159796,
+      "description": "已完成：src/ 内 TEMP-DEBUG / __wbTest / [dbg] 全部清零（0.1.5 起）；README 数据层与宿主侧说明、PRD R2 实现变更、docs/design.md 归档真相修正均已落盘；statusStore.ts 已删除。\n剩余：① 删除根目录 0 字节杂散文件 m[1])；② git init + 首次基线提交（当前无版本控制，曾因 pnpm 目录联接丢过项目）；③ 删除过期脚本 scripts/check-archive-state.mjs（依赖已不存在的 TEMP/wb-live2.json）；④ README 补「改动后必须升版本 build+pack+install 并核哈希」的发布流程。"
+    },
+    {
+      "id": "card-f9a409ba-4acf-4d1f-bff5-3ecbb971e254",
+      "title": "实现会话永久删除（自路由 + 宿主服务，语义对齐 dsh-archive-manager）",
+      "summary": "新增 src/host/deleteSession.ts（约 390 行）：id 白名单 → 未知会话幂等 skipped → live 会话 flush+detach / 冷会话 publishColdSessionRemoval → 清投影缓存 → 只级联 origin==='subagent' 子会话（绝不级联 fork）→ 清 spill → 删除 jsonl 转录目录 → 成功后才更新 archivedSessionIds 与 workspace 记账并 emit api-session/removed。删除目录前复刻参考的所有权校验：persistence.name/location.kind/绝对 root/basename 正则/路径编码重建比对，拒绝符号链接，rm 后 stat 复查。src/host/index.ts 新增 POST /dsh-workbench/session/delete（仅同源、body ≤8KiB、405/413/403/400/500 分级），watchRoots 增加 storages。客户端 api.ts 新增 deleteSession()，Detail.tsx 改走该路由并去掉 getRegistry 依赖。tests/delete.test.ts 3 用例（成功/幂等/非法 id）；npm test 14/14、tsc 通过；0.1.1 已安装到 desktop profile，运行验证：未知 id → 200 skipped、GET → 405、跨源 → 403。",
+      "rationale": "用户（m00128）要求按 https://github.com/MichengAI/dsh-archive-manager 实现归档/删除。归档侧宿主基类已提供，插件只需读对真相（见归档卡片）；删除侧宿主没有对外 HTTP 能力，参考项目通过继承 WorkspaceRegistry + Typert 远程方法暴露 deleteSession。我们需要在插件自有 webServer 上提供等价能力，否则 Detail 页的「永久删除」只能依赖对方插件、且无法保证其已安装。",
+      "rejected": "未照搬参考的「继承 WorkspaceRegistry 并注册 Typert remote」——那会与宿主/参考插件争抢同一服务名，且需要版本对齐；改为小函数 deleteSessionArtifacts(ctx, id) 直接调用 sessions / sessionPersistence / sessionProjectionCache / workspaceRegistry，由插件 POST 路由驱动。也考虑过只做 UI 层 removeSession（只删归档标记），但那会留下孤立转录文件，等于假删除。",
+      "sourceSessionId": "session-e42b7310-0c3f-4303-98a9-ebf2629c9f21",
+      "status": "done",
+      "tags": [
+        "feature",
+        "delete",
+        "host",
+        "release"
+      ],
+      "createdAt": 1793523172364,
+      "updatedAt": 1793523172364
+    },
+    {
+      "id": "card-fa5079dd-63a1-43ca-a0e8-8e8f0e8767ea",
+      "title": "修复历史列表的无标题幽灵会话（归档缓存孤儿记录）与删除后复活",
+      "summary": "buildState 新增第 4 步：source==='archive' 且无 dirName 且不在宿主 archivedSessionIds 的会话直接丢弃（宿主明确归档的仍保留）。deleteSession.ts 新增 purgeArchiveCache(home, sessionId)：按 record.sessionId 精确匹配删除归档缓存 JSON，损坏文件跳过；host/index.ts 在删除成功后调用并把删除的缓存文件名写进 warnings。测试：model 用例改为断言孤儿记录不进入列表；delete.test.ts 新增缓存清理用例（只删匹配、保留其他与损坏文件）。验证：npm test 15/15、tsc 通过；0.1.4 安装后 /state 会话数 56→44，幽灵行归零，剩余 7 条无标题均为真实 live 会话。",
+      "rationale": "用户反馈：历史列表出现无标题会话且删不掉。实测这 12 行全部来自宿主归档缓存的孤儿记录（record.sessionId 存在、无转录文件、宿主归档集合里也没有），聚合层把它们当普通归档会话列出；删除时因 header 与 live 都不存在走幂等 skipped，只清记账不删缓存，刷新后缓存记录又把行重建出来，于是\"删不掉\"。另有 7 行无标题是真实 live 会话（spike/插件建的会话，projcache 里没有标题元数据），属于正常但需要更好兜底文案。",
+      "rejected": "未选择\"删除时只清记账、不动归档缓存\"（那正是删不掉的根因）；也没有把归档缓存整体忽略（宿主明确归档的会话即使转录文件缺失也应能取消归档/删除）。没有用 UI 层隐藏空标题行来掩盖数据问题——判据放在聚合层，L1/L2 才一致。",
+      "sourceSessionId": "session-e42b7310-0c3f-4303-98a9-ebf2629c9f21",
+      "status": "done",
+      "tags": [
+        "bug",
+        "model",
+        "delete",
+        "archive"
+      ],
+      "createdAt": 1793523972118,
+      "updatedAt": 1793523972118
+    },
+    {
+      "id": "card-abd756f0-92f9-4651-951a-cf55618716fd",
+      "title": "SSE 仅在聚合结果真正变化时推事件（抑制投影缓存重写造成的 revision 抖动）",
+      "summary": "src/host/index.ts 的 rebuild() 增加内容签名（JSON.stringify 去掉 generatedAt）：签名相同则直接返回，不升 revision、不广播 change。tsc 0、tests 15/15；0.1.6 已构建安装，client hash 与本地一致；实测 revision 从约每 5 秒 +1 变为 24 秒内仅 1 次真实变化。",
+      "rationale": "接归档/删除上线后，watcher 每几秒触发重建并升 revision / 推 SSE，客户端被无意义变更事件反复刷新（实测约每 5 秒一次；根因是宿主周期性重写 session_projcache）。SSE 是唯一实时通道，过于频繁会让 L1/L2 反复重渲染。",
+      "rejected": "没有选择\"关掉 projcache watcher\"——那会漏掉标题/token 的更新；也没有把 watcher 换成轮询——磁盘事件更及时且不增加常驻开销。",
+      "sourceSessionId": "session-e42b7310-0c3f-4303-98a9-ebf2629c9f21",
+      "status": "done",
+      "tags": [
+        "perf",
+        "sse",
+        "host"
+      ],
+      "createdAt": 1793524143639,
+      "updatedAt": 1793524143639
+    }
+  ]
+}

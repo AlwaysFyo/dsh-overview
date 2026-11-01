@@ -1,0 +1,334 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PRD · DSH 工作台插件</title>
+<style>
+  :root {
+    --bg: #f6f5f1; --surface: #ffffff; --surface2: #f1efe8;
+    --text: #2c2c2a; --text2: #5f5e5a; --text3: #888780;
+    --border: rgba(0,0,0,0.15); --border2: rgba(0,0,0,0.30);
+    --info-bg: #e6f1fb; --info-tx: #185fa5; --info-bd: #85b7eb;
+    --ok-bg: #eaf3de; --ok-tx: #3b6d11;
+    --warn-bg: #faeeda; --warn-tx: #854f0b;
+    --danger-tx: #a32d2d; --danger-bg: #fcebeb;
+    --p0: #a32d2d; --p0-bg: #fcebeb; --p1: #854f0b; --p1-bg: #faeeda; --p2: #185fa5; --p2-bg: #e6f1fb;
+  }
+  [data-theme="dark"] {
+    --bg: #1c1c1a; --surface: #262624; --surface2: #32322f;
+    --text: #e8e6df; --text2: #b4b2a9; --text3: #888780;
+    --border: rgba(255,255,255,0.15); --border2: rgba(255,255,255,0.30);
+    --info-bg: #0c2b47; --info-tx: #85b7eb; --info-bd: #185fa5;
+    --ok-bg: #1f3308; --ok-tx: #97c459;
+    --warn-bg: #3a2a05; --warn-tx: #ef9f27;
+    --danger-tx: #f09595; --danger-bg: #471c1c;
+    --p0: #f09595; --p0-bg: #471c1c; --p1: #ef9f27; --p1-bg: #3a2a05; --p2: #85b7eb; --p2-bg: #0c2b47;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font-family: "Segoe UI", "Microsoft YaHei", sans-serif; font-size: 14px; line-height: 1.7; }
+  .wrap { max-width: 860px; margin: 0 auto; padding: 24px 20px 80px; }
+  header.doc { border-bottom: 2px solid var(--text); padding-bottom: 16px; margin-bottom: 20px; }
+  h1 { font-size: 24px; margin: 0 0 8px; }
+  .meta { display: flex; flex-wrap: wrap; gap: 8px; font-size: 12px; color: var(--text2); }
+  .meta span { background: var(--surface2); border-radius: 999px; padding: 3px 12px; }
+  .toolbar { position: sticky; top: 0; z-index: 10; background: var(--bg); padding: 10px 0; display: flex; gap: 10px; align-items: center; border-bottom: 1px solid var(--border); margin-bottom: 24px; }
+  .toolbar input[type=search] { flex: 1; padding: 7px 12px; border: 1px solid var(--border2); border-radius: 8px; background: var(--surface); color: var(--text); font-size: 13px; }
+  .toolbar button { padding: 7px 14px; border: 1px solid var(--border2); border-radius: 8px; background: var(--surface); color: var(--text); cursor: pointer; font-size: 13px; }
+  .search-info { font-size: 12px; color: var(--text3); white-space: nowrap; }
+  h2 { font-size: 19px; margin: 40px 0 12px; padding-top: 8px; border-top: 1px solid var(--border); }
+  h3 { font-size: 15px; margin: 24px 0 8px; }
+  p { margin: 8px 0; }
+  ul, ol { margin: 8px 0; padding-left: 22px; }
+  li { margin: 4px 0; }
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 14px 18px; margin: 12px 0; }
+  .req-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 6px; }
+  .req-head strong { font-size: 15px; }
+  .badge { font-size: 11px; font-weight: 600; border-radius: 999px; padding: 2px 10px; }
+  .b-p0 { color: var(--p0); background: var(--p0-bg); }
+  .b-p1 { color: var(--p1); background: var(--p1-bg); }
+  .b-p2 { color: var(--p2); background: var(--p2-bg); }
+  .tag { font-size: 11px; color: var(--text2); background: var(--surface2); border-radius: 999px; padding: 2px 10px; }
+  .ac { background: var(--surface2); border-radius: 8px; padding: 10px 14px; margin: 8px 0; font-size: 13px; }
+  .ac b { color: var(--text); }
+  .redline { border-left: 3px solid var(--danger-tx); background: var(--danger-bg); border-radius: 0 8px 8px 0; padding: 10px 14px; margin: 10px 0; font-size: 13px; }
+  table { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 13px; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
+  th, td { text-align: left; padding: 8px 12px; border-bottom: 1px solid var(--border); vertical-align: top; }
+  th { background: var(--surface2); font-weight: 600; }
+  tr:last-child td { border-bottom: none; }
+  code { font-family: Consolas, monospace; font-size: 12.5px; background: var(--surface2); border-radius: 4px; padding: 1px 6px; }
+  .story { margin: 6px 0; }
+  .story b { color: var(--info-tx); }
+  .toc { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 12px 18px; font-size: 13px; }
+  .toc a { color: var(--text2); text-decoration: none; }
+  .toc a:hover { color: var(--text); }
+  .hidden { display: none !important; }
+  mark { background: var(--warn-bg); color: var(--warn-tx); border-radius: 3px; padding: 0 2px; }
+  .goal { border-left: 3px solid var(--info-tx); padding-left: 12px; margin: 10px 0; }
+  footer { margin-top: 48px; font-size: 12px; color: var(--text3); border-top: 1px solid var(--border); padding-top: 12px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header class="doc">
+  <h1>PRD · DSH 工作台插件（dsh-workbench）</h1>
+  <div class="meta">
+    <span>版本 v0.3 · 定稿稿</span>
+    <span>状态：待评审</span>
+    <span>日期：2026-10-31</span>
+    <span>作者：产品通 × Yolo</span>
+    <span>平台：DeepSeek Harness（DSH）桌面端插件</span>
+  </div>
+</header>
+
+<div class="toolbar">
+  <input type="search" id="q" placeholder="搜索 PRD 内容（需求、验收标准、数据源…）">
+  <span class="search-info" id="qinfo"></span>
+  <button id="themeBtn">🌙 深色</button>
+</div>
+
+<nav class="toc">
+  <b>目录</b> ·
+  <a href="#s1">1 问题陈述</a> ·
+  <a href="#s2">2 目标</a> ·
+  <a href="#s3">3 Non-goals</a> ·
+  <a href="#s4">4 用户故事</a> ·
+  <a href="#s5">5 需求（P0/P1/P2）</a> ·
+  <a href="#s6">6 数据设计</a> ·
+  <a href="#s7">7 成功指标</a> ·
+  <a href="#s8">8 开放问题</a> ·
+  <a href="#s9">9 里程碑</a> ·
+  <a href="#s10">附录 A 设计定稿记录</a>
+</nav>
+
+<h2 id="s1">1 · 问题陈述</h2>
+<p>重度 DSH 用户（单人，多项目并行）当前维护 6 个工作区，会话按工作区分桶存储（<code>~/.dsh/sessions/&lt;工作区路径编码&gt;/</code>）。存在三个真实痛点：</p>
+<ul>
+  <li><b>跨项目失控</b>：哪些项目的会话在运行、哪些在等待输入，宿主没有统一出口，需要逐个工作区查看。</li>
+  <li><b>上下文恢复成本高</b>：「上次做到哪了」依赖翻找历史会话，会话标题与时间散落在各工作区目录里。</li>
+  <li><b>归档即失忆</b>：会话归档后（宿主 <code>archivedSessionIds</code>）几乎不再被回看，缺乏项目级的历史回溯入口；待办散落在会话内容中，容易遗漏。</li>
+</ul>
+<p><b>不解决的代价</b>：每日累积的上下文恢复时间、会话中产生的待办被遗忘、多项目节奏失控。<b>定位</b>：工作台 = 项目仪表盘 + 续接工作入口，而不是又一个 TODO 工具。</p>
+
+<h2 id="s2">2 · 目标</h2>
+<div class="goal"><b>G1 续接效率</b>：从打开工作台到续接任意项目的最近会话，≤ 3 次点击、≤ 10 秒。</div>
+<div class="goal"><b>G2 首屏即答案</b>：首屏默认视图直接回答「现在哪些项目在跑、哪些有未完成待办」，无需滚动或切换。</div>
+<div class="goal"><b>G3 归档可回看</b>：任意历史 / 归档会话，可通过项目详情页在 2 次交互内找回。</div>
+<div class="goal"><b>G4 零破坏</b>：插件默认零修改宿主数据；唯一写入是用户在详情页显式触发的「永久删除会话」，由插件调用宿主 sessionPersistence / workspaceRegistry 服务完成（语义与宿主自身删除一致），卸载插件后宿主功能无损。</div>
+<div class="goal"><b>G5 待办不遗漏</b>：会话中产生的 todo 事件，被工作台自动收录的比例 ≥ 80%。</div>
+
+<h2 id="s3">3 · Non-goals（本版明确不做）</h2>
+<ul>
+  <li><b>不做手动任务管理器</b>（新建任务、拖拽排序、甘特图）——待办来自会话推导，不是独立 TODO 应用。</li>
+  <li><b>不修改宿主归档机制</b>——<code>archivedSessionIds</code> 的语义与行为完全不动。</li>
+  <li><b>不做会话内容编辑</b>；会话永久删除仅限详情页逐条显式操作（见 R2 变更说明），不做批量清理、不做自动回收。</li>
+  <li><b>不做移动端 / 多设备同步</b>——DSH 为桌面端单机场景。</li>
+  <li><b>P0 不做 LLM 项目周报</b>——归入 P2（R9），避免 v1 依赖模型调用。</li>
+  <li><b>不做数据导出</b>——P2 再议。</li>
+</ul>
+
+<h2 id="s4">4 · 用户故事</h2>
+<div class="card">
+  <p class="story"><b>US-1</b>（核心）：作为多项目并行的用户，我想打开工作台就看到所有进行中项目的状态（运行中会话数、待办数、最近活动），以便决定先续哪条线。</p>
+  <p class="story"><b>US-2</b>（核心）：作为用户，我想点击项目卡片进入项目详情页，按「进行中 / 历史 / 归档」三组浏览会话，以便找回上下文。</p>
+  <p class="story"><b>US-3</b>（核心）：作为用户，我想从会话列表点击某条会话直接跳回宿主续聊，以便不用手动切换工作区翻找。</p>
+  <p class="story"><b>US-4</b>：作为用户，我想看到从会话自动提取的待办清单并勾选完成，以便不遗漏会话中产生的承诺。</p>
+  <p class="story"><b>US-5</b>：作为用户，我想把不再活跃的项目标记为已归档，以便首屏只关注活跃项目。</p>
+  <p class="story"><b>US-6</b>：作为用户，我想在已归档分组里仍能查看项目的全部历史会话与待办，以便「归档不等于失忆」。</p>
+  <p class="story"><b>US-7</b>：作为用户，我想用一次搜索跨所有项目查找会话与待办，以便不记得在哪个项目时也能找到。</p>
+  <p class="story"><b>US-8</b>（空态）：作为新用户（无项目或无会话），我需要看到引导文案与「新建会话」入口，而不是空白页面。</p>
+  <p class="story"><b>US-9</b>（边界）：作为用户，当工作区目录被删除或移动时，我希望对应卡片降级显示（置灰 + 「路径失效」提示），而不是报错崩溃。</p>
+</div>
+
+<h2 id="s5">5 · 需求</h2>
+
+<h3>5.1 P0 —— 没有就不能上线</h3>
+
+<div class="card req-item">
+  <div class="req-head"><strong>R1 · L1 全局卡片墙</strong><span class="badge b-p0">P0</span><span class="tag">US-1 / US-5 / US-9</span></div>
+  <ul>
+    <li>顶栏：标题「工作台」+ 跨项目搜索框 + 全局指标胶囊（运行中 N、待办 N，<b>仅统计进行中项目</b>）。</li>
+    <li>状态分段器：「进行中 · N / 已归档 · N / 全部 · N」三页签，<b>默认停在「进行中」</b>。</li>
+    <li>项目卡片（统一三段式）：① 标题行（状态点 + 项目名 + 状态说明）；② 路径；③ 三格指标（活跃会话 / 待办 / 未提交 git 数）+ 最近会话摘要行。运行中项目用蓝色实心状态点 + 较深边框强调。</li>
+    <li>已归档卡片降饱和：虚线边框、空心状态点、透明度降低、显示「归档于 xx-xx」。</li>
+    <li>排序：进行中页签按最近活动时间倒序。</li>
+  </ul>
+  <div class="ac"><b>AC-1</b>：Given 6 个工作区且 1 个会话运行中，When 打开工作台首屏，Then 默认显示「进行中」页签，运行中项目状态点为蓝色、指标数值正确，已归档项目不出现在该页签。</div>
+  <div class="ac"><b>AC-2</b>：Given 某工作区目录已删除，When 渲染卡片墙，Then 该卡片置灰显示「路径失效」且不参与指标统计，页面无报错。</div>
+  <div class="ac"><b>AC-3</b>：Given 无任何工作区，When 打开首屏，Then 显示空态引导文案 + 「新建会话」入口。</div>
+</div>
+
+<div class="card req-item">
+  <div class="req-head"><strong>R2 · 项目级归档标记（status.json）</strong><span class="badge b-p0">P0</span><span class="tag">US-5 / US-6</span></div>
+  <ul>
+    <li>存储：<code>~/.dsh/dsh-workbench/status.json</code>，结构 <code>{ "schemaVersion": 1, "&lt;工作区 path&gt;": { "archived": bool, "archivedAt": ISO 时间 } }</code>。</li>
+    <li>交互：卡片右键 / 悬浮菜单提供「归档 / 恢复」；已归档卡片可一键恢复。</li>
+    <li>自动建议：项目 30 天无活动且无运行中会话时，卡片角落出现「归档？」轻提示，<b>仅建议，点击才生效，绝不自动归档</b>。</li>
+  </ul>
+  <div class="redline"><b>红线（三条）</b>：① 项目归档不触碰宿主 sessions 目录与 workspace.json；② 归档不级联会话级归档，两套标记各管各的；③ 归档完全可逆，status.json 损坏时回退默认态（全部视为进行中）并重建文件。</div>
+  <div class="ac"><b>AC-4</b>：Given 项目 A 被归档，When 比对宿主 <code>workspace.json</code>，Then 内容与归档前逐字节一致。</div>
+  <div class="ac"><b>AC-5</b>：Given status.json 被手工破坏，When 启动插件，Then 回退默认态、重建文件并提示一次，不崩溃。</div>
+  <div class="redline"><b>实现变更（2026-11-01，v0.1.1 已上线）</b>：本节的项目级归档（status.json）<b>未实现并已撤销</b>。实测宿主 <code>workspace.json</code> 的 <code>global.archivedSessionIds</code> 是归档真相（归档缓存只是历史快照），因此工作台改为两条显式写入路径：①「归档 / 取消归档」委托宿主 <code>workspaces.archiveSession(id,{stopActivity:true})</code> / <code>unarchiveSession(id)</code>；②「永久删除」调用宿主 sessionPersistence / workspaceRegistry 服务，级联仅限 subagent 子会话，绝不级联 fork。插件不再拥有独立归档状态文件（<code>src/host/statusStore.ts</code> 已删除）。已归档会话允许同时是 live 会话，聚合层以宿主集合作准、归档缓存仅作元数据兜底。</div>
+</div>
+
+<div class="card req-item">
+  <div class="req-head"><strong>R3 · L2 项目详情页</strong><span class="badge b-p0">P0</span><span class="tag">US-2 / US-3 / US-6</span></div>
+  <ul>
+    <li>顶部：「← 返回」+ 项目切换下拉（每项带状态点，项目间切换 ≤ 1 秒）。</li>
+    <li>四指标卡：活跃会话 / 待办 / 已完成 / 今日 token（数据不足的卡片隐藏，不留空壳）。</li>
+    <li>会话三 tab：「进行中 / 历史 / 归档」，归档 tab 数据源 = 宿主 <code>archivedSessionIds</code>；各 tab 内按最近活动倒序，显示会话标题、轮次数、相对时间、运行状态点。</li>
+    <li>点击会话 → 跳回宿主该会话续聊（复用宿主会话打开 API）。</li>
+  </ul>
+  <div class="ac"><b>AC-6</b>：Given 项目有 27 个历史会话、3 个归档会话，When 切换三个 tab，Then 各 tab 数量与列表正确、排序为最近优先。</div>
+  <div class="ac"><b>AC-7</b>：Given 处于任意项目详情页，When 点击进行中会话，Then 宿主打开该会话且工作台状态保持（返回后不重新加载丢失位置）。</div>
+</div>
+
+<div class="card req-item">
+  <div class="req-head"><strong>R4 · 跨项目搜索</strong><span class="badge b-p0">P0</span><span class="tag">US-7</span></div>
+  <ul>
+    <li>范围（P0）：项目名、会话标题 / 摘要、待办文本；P0 数据量小，实时扫描即可，不建索引。</li>
+    <li>结果按项目分组展示、命中词高亮，点击直达对应会话或待办。</li>
+  </ul>
+  <div class="ac"><b>AC-8</b>：Given 关键词命中 2 个项目的 3 条会话，When 搜索，Then 按项目分组展示、命中高亮，且归档项目的结果在「全部」语义下可达。</div>
+</div>
+
+<div class="card req-item">
+  <div class="req-head"><strong>R5 · 空态与异常兜底</strong><span class="badge b-p0">P0</span><span class="tag">US-8 / US-9</span></div>
+  <ul><li>三类空态（无项目 / 无会话 / 路径失效）+ 两类异常（status.json 损坏、sessions 目录读取失败）均有降级文案，任何情况下不白屏、不阻断宿主。</li></ul>
+  <div class="ac"><b>AC-9</b>：Given sessions 目录临时不可读，When 打开工作台，Then 显示「数据暂不可用」降级态，宿主主流程不受影响。</div>
+</div>
+
+<h3>5.2 P1 —— 紧随其后的快速迭代</h3>
+
+<div class="card req-item">
+  <div class="req-head"><strong>R6 · 待办提取与勾选</strong><span class="badge b-p1">P1</span><span class="tag">US-4</span></div>
+  <ul>
+    <li>来源优先级：① 宿主 todo 工具事件（可订阅则监听）；② 会话产物解析（markdown checklist 等）兜底；③ 手动添加作为补充。</li>
+    <li>待办归属项目 = 产生它的会话所在项目；勾选完成状态写入 <code>dsh-workbench/todos.json</code>（第二处写入点）。</li>
+  </ul>
+  <div class="ac"><b>AC-10</b>：Given 会话内产生 3 条 todo，When 打开该项目详情页，Then 待办面板收录 ≥ 80% 且标注来源会话。</div>
+</div>
+
+<div class="card req-item">
+  <div class="req-head"><strong>R7 · git 集成（只读）</strong><span class="badge b-p1">P1</span><span class="tag">US-1</span></div>
+  <ul><li>项目卡片与详情页显示分支名、未提交文件数；实现为只读 <code>git status</code>，节流调用（切页时刷新，不做文件监听）。</li></ul>
+</div>
+
+<div class="card req-item">
+  <div class="req-head"><strong>R8 · 项目动态时间线</strong><span class="badge b-p1">P1</span><span class="tag">US-6</span></div>
+  <ul><li>详情页右侧展示事件流：长会话结束、文件提交、会话归档、待办完成；仅聚合已有事件，不引入新数据采集。</li></ul>
+</div>
+
+<h3>5.3 P2 —— 架构留位，本期不实现</h3>
+<div class="card req-item">
+  <div class="req-head"><strong>R9-R12 · 增值能力</strong><span class="badge b-p2">P2</span></div>
+  <ul>
+    <li><b>R9 LLM 项目周报</b>：「本周做了什么 / 下一步」自动摘要（依赖模型调用，P0 架构上预留事件数据即可支持）。</li>
+    <li><b>R10 token 成本趋势</b>：跨项目按日 / 按项目聚合图表（依赖 .dshw-usage.json 粒度验证结论）。</li>
+    <li><b>R11 会话内容语义搜索</b>：需要索引层，与 R4 的实时扫描并存。</li>
+    <li><b>R12 闲置项目提醒</b>：N 天无活动 + 有未完成待办时在首屏提示。</li>
+  </ul>
+</div>
+
+<h2 id="s6">6 · 数据设计</h2>
+<table>
+  <tr><th style="width:34%">数据源</th><th style="width:14%">读写</th><th>用途</th></tr>
+  <tr class="req-item"><td><code>~/.dsh/storages/workspace.json</code></td><td>只读</td><td>工作区注册表：path / title / sessionIds / archivedSessionIds / pinnedSessionIds</td></tr>
+  <tr class="req-item"><td><code>~/.dsh/sessions/&lt;slug&gt;/session-*/</code></td><td>只读</td><td>会话元数据、轮次、时间戳 → 推导活跃 / 历史 / 最近活动 / 摘要</td></tr>
+  <tr class="req-item"><td><code>~/.dsh/storages/session_projcache_archive_manager_v2</code></td><td>只读</td><td>归档会话数据（详情页「归档」tab）</td></tr>
+  <tr class="req-item"><td><code>~/.dsh/.dshw-usage.json</code></td><td>只读</td><td>token 用量（粒度待验证，见开放问题 Q1）</td></tr>
+  <tr class="req-item"><td>git 仓库（只读 status）</td><td>只读</td><td>分支名、未提交文件数（P1）</td></tr>
+  <tr class="req-item"><td><code>~/.dsh/dsh-workbench/status.json</code></td><td><b>写入</b></td><td>项目归档标记（唯一 P0 写入点，可逆、可自愈）</td></tr>
+  <tr class="req-item"><td><code>~/.dsh/dsh-workbench/todos.json</code></td><td><b>写入</b>（P1 起）</td><td>待办勾选状态（提取内容仍来自会话）</td></tr>
+</table>
+<p><b>核心原则</b>：状态靠推导，不靠手工维护——除上述两处插件自有文件外，一切展示数据来自宿主现有存储的只读推导。两个自有文件（status.json / todos.json）均携带 <code>schemaVersion</code> 字段，便于后续结构演进与迁移。</p>
+
+<h2 id="s7">7 · 成功指标</h2>
+<table>
+  <tr><th style="width:18%">层级</th><th>指标</th><th style="width:32%">目标与测量</th></tr>
+  <tr><td><b>北极星</b></td><td>「从工作台续接」的会话占全部续接行为的比例</td><td>上线 4 周后 ≥ 60%（插件内埋点计数）</td></tr>
+  <tr><td><b>驱动</b></td><td>首屏 → 续接点击路径长度</td><td>≤ 3 步达成率 100%（交互设计保证，上线时验收）</td></tr>
+  <tr><td><b>驱动</b></td><td>待办周勾选率</td><td>上线 4 周后 ≥ 50%。</td></tr>
+  <tr><td><b>健康</b></td><td>插件崩溃次数 / 宿主启动时间增量</td><td>崩溃 0；启动增量 &lt; 200ms（对比开关插件各测 10 次）</td></tr>
+  <tr><td><b>健康</b></td><td>归档误操作恢复成本</td><td>恢复归档 ≤ 1 次点击（设计保证）</td></tr>
+</table>
+
+<h2 id="s8">8 · 开放问题</h2>
+<table>
+  <tr><th style="width:8%">#</th><th>问题</th><th style="width:22%">归属</th><th style="width:16%">阻塞性</th></tr>
+  <tr><td>Q1</td><td><code>.dshw-usage.json</code> 粒度是否支持按项目 / 按日聚合？不支持则指标卡第 4 格砍掉</td><td>工程验证</td><td><b>阻塞 R3 指标卡</b></td></tr>
+  <tr><td>Q2</td><td>DSH 插件 API 能否订阅会话运行状态事件？不能则轮询 sessions 目录（需定轮询间隔与开销上限）</td><td>工程验证</td><td><b>阻塞 R1 状态点</b></td></tr>
+  <tr><td>Q3</td><td>宿主 todo 工具事件是否可订阅？决定 R6 的实现路径（事件监听 vs 产物解析）</td><td>工程验证</td><td><b>阻塞 R6</b>（P1 前）</td></tr>
+  <tr><td>Q4</td><td>「已完成」指标卡的口径：完成的待办数 or 已完结会话数？建议 = 勾选完成的待办累计数</td><td>产品决策</td><td>非阻塞（M1 前定）</td></tr>
+  <tr><td>Q5</td><td>宿主是否提供「打开指定会话并续聊」的 API（深链 / 命令）？没有则 R3 的点击跳转退化为复制 resume 命令，由用户手动粘贴</td><td>工程验证</td><td><b>阻塞 R3 跳转</b>（与 Q2 一同验证）</td></tr>
+</table>
+
+<h2 id="s9">9 · 里程碑</h2>
+<table>
+  <tr><th style="width:14%">阶段</th><th style="width:30%">范围</th><th>出口标准</th></tr>
+  <tr><td><b>M1 核心可用</b></td><td>R1 卡片墙 + R2 归档标记 + R3 详情页 + R5 空态</td><td>AC-1~7、AC-9 全过；G1/G2/G3 达成</td></tr>
+  <tr><td><b>M2 P0 收尾</b></td><td>R4 跨项目搜索</td><td>AC-8 通过；P0 完整闭环</td></tr>
+  <tr><td><b>M3 快速迭代</b></td><td>R6 待办 + R7 git + R8 时间线</td><td>AC-10 通过；G5 达成</td></tr>
+  <tr><td><b>M4 增值</b></td><td>R9~R12 按使用数据排期</td><td>视 M1-M3 指标决定</td></tr>
+</table>
+<p><b>开发注意</b>：插件安装 / 更新走命令行 pnpm 通道（dev 期绕开宿主 HMR 插件管理通道的 already-installed 与 minimumReleaseAge 两个已知问题）；发版经 dshmarket 分发。</p>
+
+<h2 id="s10">附录 A · 设计定稿记录（2026-10-31 三轮评审）</h2>
+<div class="card">
+  <ul>
+    <li><b>信息架构（定稿）</b>：L1 全局卡片墙（跨项目聚合）→ L2 项目详情（三 tab 会话 + 指标 + 待办）→ L3 会话（跳回宿主续聊）。放弃一屏主从方案；触发回退的边界条件：项目数长期 ≤ 3 且单项目为主。</li>
+    <li><b>L1 布局（v3 定稿）</b>：状态分段器（进行中 / 已归档 / 全部，默认进行中）+ 统一三段式卡片 + 全局指标胶囊；归档卡片降饱和（虚线边框、空心状态点、「归档于 xx-xx」）。迭代原因：v1 状态区分不明显、v2 卡片参差。</li>
+    <li><b>项目级归档语义（定稿）</b>：手动标记 + 30 天自动建议（仅提示不执行）；三红线 = 不动宿主数据、不级联会话归档、完全可逆。</li>
+    <li><b>定位（定稿）</b>：项目仪表盘 + 续接工作入口；状态推导优先，工作台不是 TODO 工具。</li>
+  </ul>
+</div>
+
+<footer>PRD · dsh-workbench · v0.3 · 依据 feature-spec 模板产出 · 深浅主题与搜索过滤已内置</footer>
+</div>
+
+<script>
+  var btn = document.getElementById('themeBtn');
+  var saved = null;
+  try { saved = localStorage.getItem('dshw-prd-theme'); } catch(e) {}
+  if (saved) document.documentElement.setAttribute('data-theme', saved);
+  function syncBtn() {
+    var dark = document.documentElement.getAttribute('data-theme') === 'dark';
+    btn.textContent = dark ? '☀️ 浅色' : '🌙 深色';
+  }
+  syncBtn();
+  btn.addEventListener('click', function() {
+    var dark = document.documentElement.getAttribute('data-theme') === 'dark';
+    var next = dark ? 'light' : 'dark';
+    document.documentElement.setAttribute('data-theme', next);
+    try { localStorage.setItem('dshw-prd-theme', next); } catch(e) {}
+    syncBtn();
+  });
+
+  var q = document.getElementById('q');
+  var info = document.getElementById('qinfo');
+  var blocks = Array.prototype.slice.call(document.querySelectorAll('.req-item, .goal, .story, table tr, .redline, .ac'));
+  blocks.forEach(function(el) { el.dataset.orig = el.innerHTML; });
+  q.addEventListener('input', function() {
+    var kw = q.value.trim().toLowerCase();
+    var hits = 0;
+    blocks.forEach(function(el) {
+      el.innerHTML = el.dataset.orig;
+      if (!kw) { el.classList.remove('hidden'); return; }
+      var text = el.textContent.toLowerCase();
+      if (text.indexOf(kw) !== -1) {
+        el.classList.remove('hidden');
+        hits++;
+        var html = el.dataset.orig;
+        var safe = kw.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        html = html.replace(new RegExp('(' + safe + ')', 'gi'), '<mark>$1</mark>');
+        el.innerHTML = html;
+      } else {
+        el.classList.add('hidden');
+      }
+    });
+    info.textContent = kw ? (hits ? hits + ' 处匹配' : '无匹配') : '';
+  });
+</script>
+</body>
+</html>
