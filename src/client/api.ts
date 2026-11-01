@@ -69,8 +69,8 @@ export interface SessionGroups {
   archived: SessionMeta[]
 }
 
-/** PRD R3 三 tab 口径：进行中 / 历史 / 归档。liveIds = 宿主 sessions.list() 真源（Q2） */
-export function splitSessions(project: ProjectState, now = Date.now(), liveIds?: string[] | null): SessionGroups {
+/** PRD R3 三 tab 口径：进行中 / 历史 / 归档。liveIds = 运行中真源（客户端会话快照，见 liveness.ts） */
+export function splitSessions(project: ProjectState, now = Date.now(), liveIds?: readonly string[] | null): SessionGroups {
   const live = liveIds ? new Set(liveIds) : null
   const running: SessionMeta[] = []
   const history: SessionMeta[] = []
@@ -87,7 +87,7 @@ export function splitSessions(project: ProjectState, now = Date.now(), liveIds?:
 /** L1 卡片状态点：运行中 / 空闲（7 天内）/ 沉寂 */
 export type ProjectLiveness = 'running' | 'idle' | 'quiet'
 
-export function projectLiveness(project: ProjectState, now = Date.now(), liveIds?: string[] | null): ProjectLiveness {
+export function projectLiveness(project: ProjectState, now = Date.now(), liveIds?: readonly string[] | null): ProjectLiveness {
   if (project.archived) return 'quiet'
   if (liveIds) {
     if (project.sessions.some((s) => !s.archived && liveIds.includes(s.id))) return 'running'

@@ -15,6 +15,7 @@
  */
 import { createElement, useEffect, useSyncExternalStore } from './react.ts'
 import { WorkbenchApp } from './App.tsx'
+import { bindSessionLiveness, type SessionListSource } from './liveness.ts'
 import { themeCss } from './themeCss.ts'
 import {
   consumeResumeDraft,
@@ -46,8 +47,9 @@ type WorkspacesApi = {
 } | null
 
 export const name = 'dsh-overview'
-// uiWorkspace: 续接跳转/归档/导航总入口；remote: workspaceRegistry（真删除）
-export const inject = ['slots', 'uiWorkspace', 'remote']
+// uiWorkspace: 续接跳转/归档/导航总入口；remote: workspaceRegistry（真删除）；
+// sessions: 官方客户端会话列表（「运行中」真源，见 liveness.ts）
+export const inject = ['slots', 'uiWorkspace', 'remote', 'sessions']
 
 /** 会话输入框 dock 的宿主注入 props */
 interface DockProps {
@@ -122,6 +124,15 @@ export function apply(ctx: ClientCtx): void {
     document.head.appendChild(style)
     return () => style.remove()
   }, 'dsh-overview theme')
+
+  // 「运行中」真源：官方客户端会话快照（ctx.sessions.list），与官方侧栏同一份数据。
+  // 宿主侧 SessionStore.list() 在常驻 webServer 里恒为空，见 liveness.ts 注释。
+  ctx.effect(() => {
+    const sessions = (ctx as unknown as Record<string, unknown>)['sessions'] as
+      | { list?: SessionListSource }
+      | undefined
+    return bindSessionLiveness(sessions?.list ?? null)
+  }, 'dsh-overview liveness')
 
   // 左侧栏格子：一枚小图标（对齐官方行高与图标规格）
   ctx.slots.inject('sidebar.panellist', () =>

@@ -22,6 +22,7 @@ type GetWorkspaces = () => {
 export function Detail({
   state,
   project,
+  liveIds,
   getUiWorkspace,
   getWorkspaces,
   onChanged,
@@ -30,6 +31,8 @@ export function Detail({
 }: {
   state: WorkbenchState
   project: ProjectState
+  /** 运行中会话 id（客户端会话快照）；未提供时回退宿主 liveSessionIds */
+  liveIds?: readonly string[] | null
   getUiWorkspace?: GetUiWorkspace
   getWorkspaces?: GetWorkspaces
   /** 会话归档/删除后由父级刷新数据 */
@@ -39,8 +42,8 @@ export function Detail({
 }) {
   const [tab, setTab] = useState<'running' | 'history' | 'archived'>('running')
   const groups = useMemo(
-    () => splitSessions(project, Date.now(), state.liveSessionIds ?? null),
-    [project, state.liveSessionIds],
+    () => splitSessions(project, Date.now(), liveIds ?? state.liveSessionIds ?? null),
+    [project, liveIds, state.liveSessionIds],
   )
 
   const totalTurns = project.sessions.reduce((sum, s) => sum + (s.turns ?? 0), 0)

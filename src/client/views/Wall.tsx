@@ -5,7 +5,16 @@ import { projectLiveness, projectTodoCount } from '../api.ts'
 import { fmtRelative } from '../util.ts'
 
 /** L1 全局卡片墙（PRD R1）：状态分段器 + 三段式项目卡片 */
-export function Wall({ state, onOpen }: { state: WorkbenchState; onOpen: (id: string) => void }) {
+export function Wall({
+  state,
+  liveIds,
+  onOpen,
+}: {
+  state: WorkbenchState
+  /** 运行中会话 id（官方客户端会话快照）；null/undefined 时卡片回退时间窗 */
+  liveIds?: readonly string[] | null
+  onOpen: (id: string) => void
+}) {
   const [filter, setFilter] = useState<'active' | 'archived' | 'all'>('active')
 
   const counts = useMemo(() => {
@@ -56,7 +65,7 @@ export function Wall({ state, onOpen }: { state: WorkbenchState; onOpen: (id: st
       ) : (
         <div className="wb-grid">
           {visible.map((p) => (
-            <ProjectCard key={p.id} project={p} liveIds={state.liveSessionIds ?? null} onOpen={() => onOpen(p.id)} />
+            <ProjectCard key={p.id} project={p} liveIds={liveIds ?? null} onOpen={() => onOpen(p.id)} />
           ))}
         </div>
       )}
@@ -70,7 +79,7 @@ function ProjectCard({
   onOpen,
 }: {
   project: ProjectState
-  liveIds: string[] | null
+  liveIds: readonly string[] | null
   onOpen: () => void
 }) {
   const live = project.sessions.filter((s) => !s.archived).length

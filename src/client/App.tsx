@@ -1,6 +1,7 @@
-import { useEffect, useMemo, useState } from './react.ts'
+import { useEffect, useMemo, useState, useSyncExternalStore } from './react.ts'
 import type { WorkbenchState } from '../model/types.ts'
 import { fetchState, IS_HOSTED, projectLiveness, projectTodoCount } from './api.ts'
+import { getLivenessSnapshot, subscribeLiveness } from './liveness.ts'
 import { searchSessions, highlightTitle } from './SearchHit.ts'
 import { Wall } from './views/Wall.tsx'
 import { Detail } from './views/Detail.tsx'
@@ -78,11 +79,15 @@ export function WorkbenchApp({
 
   const hits = useMemo(() => (state && searchOpen ? searchSessions(state, query) : []), [state, searchOpen, query])
 
+  // 官方客户端会话快照里的运行中会话（与侧栏同源）；未绑定时回退宿主 liveSessionIds
+  const liveness = useSyncExternalStore(subscribeLiveness, getLivenessSnapshot)
+  const liveIds: readonly string[] | null = liveness.ready ? liveness.ids : (state?.liveSessionIds ?? null)
+
   const globalRunning = useMemo(() => {
     if (!state) return 0
-    return state.projects.filter((p) => !p.archived && projectLiveness(p, Date.now(), state.liveSessionIds ?? null) === 'running')
+    return state.projects.filter((p) => !p.archived && projectLiveness(p, Date.now(), liveIds) === 'running')
       .length
-  }, [state])
+  }, [state, liveIds])
   const globalTodos = useMemo(() => {
     if (!state) return 0
     return state.projects.filter((p) => !p.archived).reduce((sum, p) => sum + projectTodoCount(p), 0)
@@ -177,11 +182,12 @@ export function WorkbenchApp({
       </header>
 
       {view.kind === 'l1' || !current ? (
-        <Wall state={state} onOpen={openProject} />
+        <Wall state={state} liveIds={liveIds} onOpen={openProject} />
       ) : (
         <Detail
           state={state}
           project={current}
+          liveIds={liveIds}
           getUiWorkspace={getUiWorkspace}
           getWorkspaces={getWorkspaces}
           onChanged={refresh}

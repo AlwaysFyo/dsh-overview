@@ -1,6 +1,6 @@
 {
   "name": "dsh-overview",
-  "version": "0.1.8",
+  "version": "0.1.9",
   "private": true,
   "type": "module",
   "description": "DSH 全景概览插件：以工作区项目为维度的会话/任务仪表盘",
@@ -33,7 +33,7 @@
     "build": "tsdown && node scripts/build-client.mjs",
     "snapshot": "node src/cli.ts",
     "check": "tsc -p tsconfig.json",
-    "test": "node --test tests/model.test.ts tests/delete.test.ts",
+    "test": "node --test tests/model.test.ts tests/delete.test.ts tests/liveness.test.ts",
     "dev": "vite"
   },
   "dsh": {
