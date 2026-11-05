@@ -11,7 +11,7 @@ DSH（DeepSeekRuntime）全景概览插件：以工作区项目为维度的会�
 - 需求基线：[docs/dsh-overview-prd.html](docs/dsh-overview-prd.html)（PRD v0.3，含 R2 实现变更说明）
 - UI 原型：[docs/dsh-overview-ui.html](docs/dsh-overview-ui.html)
 
-同步流程（CNB 单推 + 流水线镜像）：本地只有 `origin = cnb.cool`，`git push` 只写 CNB；GitHub 由 `.cnb.yml` 的 `mirror-to-github` 流水线在每次 `push: main` 后镜像（与 `dsh-fairy`、`hexo-butterfly-next` 同一套做法）。两处细节：① 镜像前用 `git filter-branch --index-filter` 把 **`.cnb.yml` 从整条历史里摘掉**——该文件只在 CNB 有意义，GitHub 侧不该有；改写是确定性的，所以增量推送仍然只传新提交，但**两边的 commit SHA 不再相同**（比对只能看文件内容，不能比 SHA）。② 凭据 `GITHUB_USERNAME` / `GITHUB_TOKEN` 不写在仓库里，由密钥仓库 `one-mugen/secrets` 的 `secrets.yml` 经 `imports` 注入；token 是 fine-grained PAT，`Repository access` 必须包含 `zhileyo/dsh-overview` 且 `Contents: Read and write`。凭据缺失或无权访问时流水线**直接失败**（前置用 GitHub API 预检，把 401/404 翻译成具体缺哪项权限），不静默跳过——否则内容同步了但镜像不了，两边会长期漂移。GitHub 侧仍保留 `ci.yml`（`npm ci` / `check` / `test`）作为第二道验证。
+同步流程（CNB 单推 + 流水线镜像）：本地只有 `origin = cnb.cool`，`git push` 只写 CNB；GitHub 由 `.cnb.yml` 的 `mirror-to-github` 流水线在每次 `push: main` 后镜像（与 `dsh-fairy`、`hexo-butterfly-next` 同一套做法）。两处细节：① 镜像前用 `git filter-branch --index-filter` 把 **`.cnb.yml` 从整条历史里摘掉**——该文件只在 CNB 有意义，GitHub 侧不该有；改写是确定性的，所以增量推送仍然只传新提交，但**两边的 commit SHA 不再相同**（比对只能看文件内容，不能比 SHA）。② 凭据 `GITHUB_USERNAME` / `GITHUB_TOKEN` 不写在仓库里，由密钥仓库 `zhileyo/secrets` 的 `secrets.yml` 经 `imports` 注入；token 是 fine-grained PAT，`Repository access` 必须包含 `zhileyo/dsh-overview` 且 `Contents: Read and write`。凭据缺失或无权访问时流水线**直接失败**（前置用 GitHub API 预检，把 401/404 翻译成具体缺哪项权限），不静默跳过——否则内容同步了但镜像不了，两边会长期漂移。GitHub 侧仍保留 `ci.yml`（`npm ci` / `check` / `test`）作为第二道验证。
 
 ## 当前状态
 

@@ -12,7 +12,7 @@
 # 两边不能直接比对 SHA，只比对文件内容。
 #
 # 凭据：GITHUB_USERNAME / GITHUB_TOKEN 不写在本文件，
-#       由密钥仓库 one-mugen/secrets 的 secrets.yml 通过 imports 注入
+#       由密钥仓库 zhileyo/secrets 的 secrets.yml 通过 imports 注入
 #       （与 one-mugen/dsh-fairy、one-mugen/hexo-butterfly-next 同一套约定）。
 #       GITHUB_TOKEN 必须是 fine-grained token，且：
 #         Repository access 包含 zhileyo/dsh-overview
@@ -32,7 +32,7 @@
   runner:
     cpus: 2
   imports:
-    - https://cnb.cool/one-mugen/secrets/-/blob/main/secrets.yml
+    - https://cnb.cool/zhileyo/secrets/-/blob/main/secrets.yml
   lock:
     key: mirror-github
     wait: true
@@ -49,7 +49,7 @@
         [ -n "${GITHUB_TOKEN:-}" ] || _missing="$_missing GITHUB_TOKEN"
         if [ -n "$_missing" ]; then
           echo "✗ 缺少环境变量:$_missing" >&2
-          echo "  请在密钥仓库 one-mugen/secrets 的 secrets.yml 中补齐：GITHUB_USERNAME / GITHUB_TOKEN" >&2
+          echo "  请在密钥仓库 zhileyo/secrets 的 secrets.yml 中补齐：GITHUB_USERNAME / GITHUB_TOKEN" >&2
           exit 1
         fi
         _code="$(node -e '
