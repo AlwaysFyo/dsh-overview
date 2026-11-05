@@ -1,34 +1,112 @@
-# 同步策略：本仓库只往 CNB 推（origin = cnb.cool），GitHub 由本流水线镜像。
-# 前置条件：在 CNB 仓库「设置 → 环境变量」里配置 GITHUB_TOKEN
-#   - 值：具备 zhileyo/dsh-overview 写权限的 GitHub PAT（fine-grained: Contents = Read and write）
-#   - 未配置时镜像阶段自动跳过，流水线保持绿色，只同步 CNB
+# ============================================================================
+# CNB dsh-overview → GitHub 镜像流水线
+#
+# 触发：push 到 main（本仓库默认分支）
+# 作用：把 CNB 上的提交镜像到 https://github.com/zhileyo/dsh-overview
+#       （GitHub 是只读镜像，日常开发只推 CNB）
+#
+# 与「原样镜像」的差别：GitHub 侧**不含 `.cnb.yml`**。该文件只在 CNB 有意义，
+# 推到 GitHub 只是噪音，所以镜像前用 filter-branch 把它从整条历史里摘掉
+# （`--index-filter` + `--prune-empty`）。改写是确定性的：同样的输入永远得到
+# 同样的 SHA，因此增量推送仍然只传新提交；代价是 GitHub 的 SHA 与 CNB 不同，
+# 两边不能直接比对 SHA，只比对文件内容。
+#
+# 凭据：GITHUB_USERNAME / GITHUB_TOKEN 不写在本文件，
+#       由密钥仓库 one-mugen/secrets 的 secrets.yml 通过 imports 注入
+#       （与 one-mugen/dsh-fairy、one-mugen/hexo-butterfly-next 同一套约定）。
+#       GITHUB_TOKEN 必须是 fine-grained token，且：
+#         Repository access 包含 zhileyo/dsh-overview
+#         Contents: Read and write
+#
+# 注意：
+#   - GitHub 侧没有配置回推，不存在自激循环。
+#   - 只监听 main：其他分支推送不触发镜像，避免 GitHub 上出现半成品分支。
+#   - lock.cancel-in-wait 只保留最新一次排队，连推多次不会堆积构建。
+#   - 镜像用 force 推送改写后的历史，不要在 GitHub 侧直接提交。
+#   - 凭据缺失/无效时直接失败（不静默跳过）：内容同步了但镜像不了会让两边
+#     长期漂移，宁可在推送当场看到红。
+# ============================================================================
+
+.mirror-job: &mirror-job
+  name: mirror-to-github
+  runner:
+    cpus: 2
+  imports:
+    - https://cnb.cool/one-mugen/secrets/-/blob/main/secrets.yml
+  lock:
+    key: mirror-github
+    wait: true
+    cancel-in-wait: true
+  stages:
+    # 先确认凭据可用：推送阶段在凭据无效时只会抛 "could not read Username"
+    # 之类的模糊错误，前置检查能把问题定位到具体仓库权限。
+    - name: check-credentials
+      image: node:24
+      script: |
+        set -eu
+        _missing=""
+        [ -n "${GITHUB_USERNAME:-}" ] || _missing="$_missing GITHUB_USERNAME"
+        [ -n "${GITHUB_TOKEN:-}" ] || _missing="$_missing GITHUB_TOKEN"
+        if [ -n "$_missing" ]; then
+          echo "✗ 缺少环境变量:$_missing" >&2
+          echo "  请在密钥仓库 one-mugen/secrets 的 secrets.yml 中补齐：GITHUB_USERNAME / GITHUB_TOKEN" >&2
+          exit 1
+        fi
+        _code="$(node -e '
+          const u = process.env.GITHUB_USERNAME || "";
+          const t = process.env.GITHUB_TOKEN || "";
+          const a = Buffer.from(u + ":" + t).toString("base64");
+          fetch("https://api.github.com/repos/zhileyo/dsh-overview", {
+            headers: { Authorization: "Basic " + a, "User-Agent": "cnb-pipeline" },
+          }).then((r) => console.log(r.status)).catch(() => console.log("000"));
+        ')"
+        echo "GitHub API 预检：HTTP $_code"
+        case "$_code" in
+          200) echo "   ✓ 凭据可访问 zhileyo/dsh-overview" ;;
+          000) echo "   网络不可达，交由镜像阶段判断" ;;
+          *)   echo "✗ 凭据无法访问 zhileyo/dsh-overview（HTTP $_code）" >&2
+               echo "  私有仓库无权限时 GitHub 统一返回 404。请确认 fine-grained token 的" >&2
+               echo "  Repository access 已包含 zhileyo/dsh-overview，且 Contents 为 Read and write。" >&2
+               exit 1 ;;
+        esac
+
+    - name: mirror
+      image: node:24
+      script: |
+        set -eu
+        git config --global --add safe.directory '*'
+        git config --global user.name 'cnb-mirror'
+        git config --global user.email 'cnb-mirror@noreply.cnb.cool'
+
+        # 浅克隆会让改写后的历史残缺，先补全
+        if [ "$(git rev-parse --is-shallow-repository 2>/dev/null || echo false)" = "true" ]; then
+          echo "· 检出是浅克隆，补全历史"
+          git fetch --unshallow origin || true
+        fi
+        git fetch origin '+refs/heads/*:refs/remotes/origin/*' || true
+
+        # 检出可能是游离 HEAD，没有本地分支就补一个 main，否则 filter-branch 无从改写
+        if [ -z "$(git for-each-ref --format='%(refname:short)' refs/heads)" ]; then
+          echo "· 没有本地分支，按 HEAD 建立 main"
+          git branch -f main HEAD
+        fi
+
+        # 把 .cnb.yml 从所有提交里摘掉（确定性改写，同样输入永远得到同样 SHA）
+        echo "· 从历史中移除 .cnb.yml"
+        FILTER_BRANCH_SQUELCH_WARNING=1 git filter-branch -f \
+          --index-filter 'git rm -r --cached --ignore-unmatch .cnb.yml >/dev/null' \
+          --prune-empty -- --all
+
+        for ref in $(git for-each-ref --format='%(refname:short)' refs/heads); do
+          echo "  ${ref} -> $(git rev-parse --short "$ref") .cnb.yml=$(git ls-tree -r --name-only "$ref" | grep -c '^\.cnb\.yml$' || true)"
+        done
+
+        # 凭据用 credential helper 传，避免 token 出现在命令行参数里
+        echo "· 推送到 GitHub（force）"
+        git -c credential.helper='!f() { echo username="$GITHUB_USERNAME"; echo password="$GITHUB_TOKEN"; }; f' \
+            push --force https://github.com/zhileyo/dsh-overview.git 'refs/heads/*:refs/heads/*'
+        echo "✓ 镜像完成：GitHub 侧不含 .cnb.yml"
+
 main:
   push:
-    - name: mirror-to-github
-      runner:
-        cpus: 2
-      docker:
-        image: node:24
-      env:
-        GITHUB_REPO: https://github.com/zhileyo/dsh-overview.git
-      lock:
-        key: mirror-github
-        wait: true
-        cancel-in-wait: true
-      stages:
-        - name: token-check
-          script: |
-            if [ -z "${GITHUB_TOKEN:-}" ]; then
-              echo "GITHUB_TOKEN 未配置 —— 本次只同步到 CNB，跳过 GitHub 镜像。"
-              echo "配置方式：CNB 仓库 → 设置 → 环境变量 → 新增 GITHUB_TOKEN（GitHub PAT，Contents 读写）。"
-            else
-              echo "GITHUB_TOKEN 已就绪，准备把 ${CNB_COMMIT_SHORT} 镜像到 ${GITHUB_REPO}"
-            fi
-        - name: mirror
-          if: '[ -n "${GITHUB_TOKEN:-}" ]'
-          script: |
-            set -euo pipefail
-            export GIT_TERMINAL_PROMPT=0
-            git config --local credential.helper '!f() { echo username=x-access-token; echo "password=${GITHUB_TOKEN}"; }; f'
-            git push "${GITHUB_REPO}" "HEAD:refs/heads/main" --force
-            echo "已镜像 ${CNB_COMMIT_SHORT} → ${GITHUB_REPO} main"
+    - *mirror-job
