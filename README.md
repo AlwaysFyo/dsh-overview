@@ -1,17 +1,17 @@
 # dsh-overview
 
-[![CI](https://github.com/AlwaysFyo/dsh-overview/actions/workflows/ci.yml/badge.svg)](https://github.com/AlwaysFyo/dsh-overview/actions/workflows/ci.yml)
+[![CI](https://github.com/zhileyo/dsh-overview/actions/workflows/ci.yml/badge.svg)](https://github.com/zhileyo/dsh-overview/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![CNB](https://img.shields.io/badge/mirror-CNB-1a7f37.svg)](https://cnb.cool/one-mugen/dsh-overview)
 
 DSH（DeepSeekRuntime）全景概览插件：以工作区项目为维度的会话 / 任务仪表盘，中文界面名为「全景概览」。
 
-- 仓库（双远端同步）：[CNB](https://cnb.cool/one-mugen/dsh-overview) · [GitHub](https://github.com/AlwaysFyo/dsh-overview)
+- 仓库（CNB 主仓 + GitHub 镜像）：[CNB](https://cnb.cool/one-mugen/dsh-overview) · [GitHub](https://github.com/zhileyo/dsh-overview)
 - 设计与决策：[docs/design.md](docs/design.md)
 - 需求基线：[docs/dsh-overview-prd.html](docs/dsh-overview-prd.html)（PRD v0.3，含 R2 实现变更说明）
 - UI 原型：[docs/dsh-overview-ui.html](docs/dsh-overview-ui.html)
 
-`origin` 的 push URL 同时指向 CNB 与 GitHub，`git push` 即双写；`origin` fetch 仍走 CNB，GitHub 另设只读远端 `github`。
+同步流程（CNB 单推 + 流水线镜像）：本地只有 `origin = cnb.cool`，`git push` 只写 CNB；GitHub 由 `.cnb.yml` 的 `mirror-to-github` 流水线在每次 `push: main` 后强制镜像（`git push --force HEAD:refs/heads/main`，只镜像主线不镜像 tag）。镜像需要在 CNB 仓库「设置 → 环境变量」里配 `GITHUB_TOKEN`（GitHub PAT，Contents 读写）；未配置时该阶段用 `if:` 自动跳过、流水线保持绿色，此时 GitHub 不会更新。GitHub 侧仍保留 `ci.yml`（`npm ci` / `check` / `test`）作为第二道验证。
 
 ## 当前状态
 

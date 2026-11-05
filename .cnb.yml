@@ -1,0 +1,34 @@
+# 同步策略：本仓库只往 CNB 推（origin = cnb.cool），GitHub 由本流水线镜像。
+# 前置条件：在 CNB 仓库「设置 → 环境变量」里配置 GITHUB_TOKEN
+#   - 值：具备 zhileyo/dsh-overview 写权限的 GitHub PAT（fine-grained: Contents = Read and write）
+#   - 未配置时镜像阶段自动跳过，流水线保持绿色，只同步 CNB
+main:
+  push:
+    - name: mirror-to-github
+      runner:
+        cpus: 2
+      docker:
+        image: node:24
+      env:
+        GITHUB_REPO: https://github.com/zhileyo/dsh-overview.git
+      lock:
+        key: mirror-github
+        wait: true
+        cancel-in-wait: true
+      stages:
+        - name: token-check
+          script: |
+            if [ -z "${GITHUB_TOKEN:-}" ]; then
+              echo "GITHUB_TOKEN 未配置 —— 本次只同步到 CNB，跳过 GitHub 镜像。"
+              echo "配置方式：CNB 仓库 → 设置 → 环境变量 → 新增 GITHUB_TOKEN（GitHub PAT，Contents 读写）。"
+            else
+              echo "GITHUB_TOKEN 已就绪，准备把 ${CNB_COMMIT_SHORT} 镜像到 ${GITHUB_REPO}"
+            fi
+        - name: mirror
+          if: '[ -n "${GITHUB_TOKEN:-}" ]'
+          script: |
+            set -euo pipefail
+            export GIT_TERMINAL_PROMPT=0
+            git config --local credential.helper '!f() { echo username=x-access-token; echo "password=${GITHUB_TOKEN}"; }; f'
+            git push "${GITHUB_REPO}" "HEAD:refs/heads/main" --force
+            echo "已镜像 ${CNB_COMMIT_SHORT} → ${GITHUB_REPO} main"
