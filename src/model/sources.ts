@@ -1,7 +1,7 @@
 import { createReadStream, existsSync, readFileSync, readdirSync, statSync } from 'node:fs'
 import { join } from 'node:path'
 import { StringDecoder } from 'node:string_decoder'
-import { createZstdDecompress } from 'node:zlib'
+import { zstdDecompressSync } from 'node:zlib'
 import type { ProjcacheRecord, SessionFileInfo, SessionHead } from './types.ts'
 
 /**
@@ -135,64 +135,154 @@ const headCache = new Map<string, HeadCacheEntry>()
 /** 无标题会话的首条 user 消息兜底缓存（同指纹失效策略） */
 interface PreviewCacheEntry {
   key: string
-  title: string | null
+  probe: SessionProbe
 }
 const previewCache = new Map<string, PreviewCacheEntry>()
 
-/** 测试用：清空缓存（避免跨用例串味） */
-export function clearSessionHeadCache(): void {
-  headCache.clear()
-  previewCache.clear()
+const ZSTD_MAGIC = 0xfd2fb528
+const ZSTD_SKIPPABLE_MASK = 0xfffffff0
+const ZSTD_SKIPPABLE_MAGIC = 0x184d2a50
+/** 单帧体积上限：超过说明帧头解析走进了死循环，宁可报错也不要吃光内存 */
+const MAX_PENDING_BYTES = 64 * 1024 * 1024
+
+/**
+ * 量出一个 zstd 帧的结束偏移。
+ * 返回 null 表示数据还不够（需要继续读），返回 -1 表示这段不是合法的 zstd 帧。
+ * 为什么手写：宿主写转录用的是「每次 append 一帧」，一份 14MB 文件能有 10770 帧
+ * （实测），而 createZstdDecompress 的流在某些 Node 版本上解完第一帧就 end，
+ * 于是只拿到首行头 —— 预览空白、正文 0 命中、标题兜底失效都由此而来。
+ */
+export function zstdFrameEnd(buf: Buffer, start: number): number | null | -1 {
+  if (buf.length - start < 4) return null
+  const magic = buf.readUInt32LE(start)
+  if ((magic & ZSTD_SKIPPABLE_MASK) === ZSTD_SKIPPABLE_MAGIC) {
+    if (buf.length - start < 8) return null
+    const end = start + 8 + buf.readUInt32LE(start + 4)
+    return end <= buf.length ? end : null
+  }
+  if (magic !== ZSTD_MAGIC) return -1
+  if (buf.length - start < 6) return null
+  let p = start + 4
+  const fhd = buf[p] ?? 0
+  p += 1
+  const singleSegment = (fhd >> 5) & 1
+  const hasChecksum = (fhd >> 2) & 1
+  const dictFlag = fhd & 3
+  const fcsFlag = (fhd >> 6) & 3
+  if (!singleSegment) p += 1
+  p += [0, 1, 2, 4][dictFlag] ?? 0
+  p += fcsFlag === 0 ? (singleSegment ? 1 : 0) : [0, 2, 4, 8][fcsFlag] ?? 0
+  for (;;) {
+    if (buf.length - p < 3) return null
+    const v = (buf[p] ?? 0) | ((buf[p + 1] ?? 0) << 8) | ((buf[p + 2] ?? 0) << 16)
+    const last = v & 1
+    const type = (v >> 1) & 3
+    const size = v >>> 3
+    if (type === 3) return -1
+    p += 3 + (type === 1 ? 1 : size)
+    if (last) break
+  }
+  if (hasChecksum) p += 4
+  return p <= buf.length ? p : null
 }
 
-/** 按行流式解压 zstd JSONL；onLine 返回 false 立即停止（省掉剩余解压） */
-function streamLines(file: string, onLine: (line: string) => boolean | void): Promise<void> {
+/**
+ * 按行流式读取 JSONL 转录；onLine 返回 false 立即停止（省掉剩余解压）。
+ * 同时支持多帧 zstd（宿主形态）与未压缩 jsonl（手工放进去的文件）。
+ */
+export function streamLines(file: string, onLine: (line: string) => boolean | void): Promise<void> {
   return new Promise<void>((resolve, reject) => {
     const rs = createReadStream(file, { highWaterMark: 64 * 1024 })
-    const zs = createZstdDecompress()
     const decoder = new StringDecoder('utf8')
-    let pending = ''
+    let pending: Buffer = Buffer.alloc(0)
+    let text = ''
+    let mode: 'unknown' | 'zstd' | 'plain' = 'unknown'
     let settled = false
     const finish = (err?: Error) => {
       if (settled) return
       settled = true
       rs.destroy()
-      zs.destroy()
       if (err) reject(err)
       else resolve()
     }
-    const consume = (text: string): boolean => {
-      pending += text
-      let nl = pending.indexOf('\n')
+    const consume = (chunk: string): boolean => {
+      text += chunk
+      let nl = text.indexOf('\n')
       while (nl >= 0) {
-        const line = pending.slice(0, nl)
-        pending = pending.slice(nl + 1)
+        const line = text.slice(0, nl)
+        text = text.slice(nl + 1)
         if (onLine(line) === false) return false
-        nl = pending.indexOf('\n')
+        nl = text.indexOf('\n')
       }
       return true
     }
-    zs.on('data', (chunk: Buffer) => {
+    /** 把 pending 里所有完整帧解压并吃掉；返回 false 表示调用方要求停止 */
+    const drainZstd = (): boolean => {
+      let off = 0
+      let out = ''
+      for (;;) {
+        const end = zstdFrameEnd(pending, off)
+        if (end === null) break
+        if (end === -1) throw new Error(`zstd 帧损坏: ${file}`)
+        const frame = pending.subarray(off, end)
+        const magic = frame.readUInt32LE(0)
+        // skippable 帧是元数据（比如字典、拼接标记），直接跳过
+        if ((magic & ZSTD_SKIPPABLE_MASK) !== ZSTD_SKIPPABLE_MAGIC) {
+          // 一帧一解：不依赖宿主 Node 是否支持「一次解多帧」的语义
+          out += zstdDecompressSync(frame).toString('utf8')
+        }
+        off = end
+      }
+      if (off === 0) return true
+      pending = pending.subarray(off)
+      return consume(out)
+    }
+    rs.on('data', (chunk: Buffer) => {
       if (settled) return
       try {
-        if (!consume(decoder.write(chunk))) finish()
+        pending = pending.length === 0 ? chunk : Buffer.concat([pending, chunk])
+        if (pending.length > MAX_PENDING_BYTES) {
+          finish(new Error(`zstd 帧过大，疑似解析错误: ${file}`))
+          return
+        }
+        if (mode === 'unknown') {
+          if (pending.length < 4) return
+          const magic = pending.readUInt32LE(0)
+          mode =
+            magic === ZSTD_MAGIC || (magic & ZSTD_SKIPPABLE_MASK) === ZSTD_SKIPPABLE_MAGIC
+              ? 'zstd'
+              : 'plain'
+        }
+        if (mode === 'plain') {
+          const raw = pending
+          pending = Buffer.alloc(0)
+          if (!consume(decoder.write(raw))) finish()
+          return
+        }
+        if (!drainZstd()) finish()
       } catch (err) {
         finish(err as Error)
       }
     })
-    zs.on('end', () => {
+    rs.on('end', () => {
       if (settled) return
       try {
-        consume(decoder.end())
-        if (pending) onLine(pending)
+        if (mode === 'plain') {
+          consume(decoder.end())
+        } else if (mode === 'zstd') {
+          // 尾部若还剩不完整字节，说明文件被截断：能解多少解多少，剩余丢弃
+          if (!drainZstd()) {
+            finish()
+            return
+          }
+        }
+        if (text) onLine(text)
         finish()
       } catch (err) {
         finish(err as Error)
       }
     })
-    zs.on('error', (err) => finish(err as Error))
     rs.on('error', (err) => finish(err as Error))
-    rs.pipe(zs)
   })
 }
 
@@ -231,26 +321,50 @@ function shorten(text: string, max = 60): string {
   return oneLine.length > max ? `${oneLine.slice(0, max - 1)}…` : oneLine
 }
 
+/** 首条 user 消息的扫描上限（超过就放弃，结论只能是「没扫到」） */
+const TITLE_SCAN_LIMIT = 2 * 1024 * 1024
+
+export interface SessionProbe {
+  /** 首条 user/message 的缩短文本；没有就是 null */
+  title: string | null
+  /** 扫过的范围里是否出现过 user/message 或 assistant/message */
+  hasMessages: boolean
+  /** 是否读到文件末尾；false = 命中扫描上限，「没扫到消息」不等于「没有消息」 */
+  complete: boolean
+}
+
 /**
- * 无 projcache 标题时的兜底：流式扫描前 2 MB 解压内容，找首条 user/message。
- * 找不到（或格式不认识）返回 null，UI 仍显示「(无标题)」。
+ * 扫前 2 MB 解压内容：取首条 user 消息当标题，并顺带回答「这个会话到底有没有对话」。
+ *
+ * 后一个问题的来源：宿主新建会话时会立刻落一个只有头 + 权限/沙箱事件的转录（实测 318 B、4 行），
+ * 切走后宿主把它从会话列表里摘掉，但**磁盘上的目录不删**。全景概览读的是磁盘，
+ * 于是会显示这批宿主自己都不再列出的空会话——判定依据就是这里扫到的 hasMessages。
  */
-export async function readSessionTitleFallback(file: string): Promise<string | null> {
+export async function probeSessionFile(file: string): Promise<SessionProbe> {
+  const unknown: SessionProbe = { title: null, hasMessages: false, complete: false }
   let key = ''
   try {
     const st = statSync(file)
     key = `${st.size}:${Math.round(st.mtimeMs)}`
     const cached = previewCache.get(file)
-    if (cached && cached.key === key) return cached.title
+    if (cached && cached.key === key) return cached.probe
   } catch {
-    return null
+    return unknown
   }
   let scanned = 0
   let title: string | null = null
+  let hasMessages = false
+  let complete = true
   try {
     await streamLines(file, (line) => {
       scanned += line.length + 1
-      if (scanned > 2 * 1024 * 1024) return false
+      if (scanned > TITLE_SCAN_LIMIT) {
+        complete = false
+        return false
+      }
+      if (line.startsWith('{"type":"user/message"') || line.startsWith('{"type":"assistant/message"')) {
+        hasMessages = true
+      }
       const text = userTextFromEvent(line)
       if (text) {
         title = shorten(text)
@@ -258,10 +372,11 @@ export async function readSessionTitleFallback(file: string): Promise<string | n
       }
     })
   } catch {
-    title = null
+    return unknown
   }
-  previewCache.set(file, { key, title })
-  return title
+  const probe: SessionProbe = { title, hasMessages, complete }
+  previewCache.set(file, { key, probe })
+  return probe
 }
 
 /** 4. sessions/<slug>/<dir>/session.v4.jsonl.zstd → 会话头 + 文件 mtime（异步流式） */
@@ -298,7 +413,7 @@ export async function readSessionHeads(root: string): Promise<SourceResult<Sessi
       const fingerprint = `${entry.size}:${Math.round(entry.mtimeMs)}`
       const cached = headCache.get(entry.file)
       if (cached && cached.key === fingerprint) {
-        if (cached.info) data.push({ ...cached.info, fileMtime: entry.mtimeMs })
+        if (cached.info) data.push({ ...cached.info, fileMtime: entry.mtimeMs, size: entry.size })
         continue
       }
       try {
@@ -309,6 +424,7 @@ export async function readSessionHeads(root: string): Promise<SourceResult<Sessi
             file: entry.file,
             head,
             fileMtime: entry.mtimeMs,
+            size: entry.size,
           }
           headCache.set(entry.file, { key: fingerprint, info })
           data.push(info)

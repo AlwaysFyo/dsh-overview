@@ -22,6 +22,15 @@ export function sessionsRoot(home: string): string {
   return join(home, 'sessions')
 }
 
+/**
+ * 会话 id 的两种写法：宿主在 workspace.json 的 sessionIds 与 global.archivedSessionIds
+ * 里带 'session-' 前缀，而转录文件头里的 id 不带（本机实测两种写法同时存在）。
+ * 关联时必须双向匹配，否则改名/归档后的会话会「查不到」。
+ */
+export function sessionIdVariants(id: string): string[] {
+  return id.startsWith('session-') ? [id, id.slice('session-'.length)] : [id, `session-${id}`]
+}
+
 /** Windows 大小写不敏感；统一成小写 + 正斜杠比较键 */
 export function normalizePath(p: string): string {
   const back = p.replace(/\//g, '\\').trim()

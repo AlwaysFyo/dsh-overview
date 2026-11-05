@@ -28,6 +28,9 @@ const result = await build({
   jsxFragment: 'React.Fragment',
   external: ['react', 'react/jsx-runtime', 'react-dom'],
   logLevel: 'silent',
+  // 发布产物做压缩：client.js 由每个已打开的页面加载，体积直接算进首屏。
+  // 排查产物形态时用 DSHO_NO_MINIFY=1 关掉。
+  minify: process.env.DSHO_NO_MINIFY !== '1',
 })
 
 const body = result.outputFiles[0].text

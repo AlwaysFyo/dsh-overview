@@ -22,6 +22,11 @@ function session(partial: Partial<SessionMeta> & { id: string }): SessionMeta {
     archived: false,
     source: 'live',
     dirName: null,
+    origin: null,
+    parentSession: null,
+    derived: false,
+    sizeBytes: null,
+    empty: false,
     ...partial,
   }
 }
@@ -32,6 +37,7 @@ function project(partial: Partial<ProjectState> & { id: string; path: string; ti
     existsOnDisk: true,
     sessions: [],
     lastActivityAt: null,
+    staleCwds: [],
     ...partial,
   }
 }
@@ -42,6 +48,8 @@ export function mockState(): WorkbenchState {
     path: 'D:\\Projects\\osuply',
     title: 'osuply',
     workspaceId: 'ws-osuply',
+    // 项目改名/搬目录后的形态：会话仍登记在旧 cwd 上，但归属靠工作区成员表
+    staleCwds: ['D:\\Projects\\osuply-old'],
     sessions: [
       session({ id: 's-1', title: '重构 osuply 部署脚本', cwd: 'D:\\Projects\\osuply', lastActivityAt: NOW - 30 * 60_000, turns: 14, tokenTotals: { uncachedInputTokens: 486_000, outputTokens: 61_000, cacheReadTokens: 0, cacheWriteTokens: 0 }, todos: [
         { content: '拆分 deploy 与 rollback 两个子命令', status: 'in_progress' },
@@ -50,7 +58,7 @@ export function mockState(): WorkbenchState {
       ] }),
       session({ id: 's-2', title: '排查 pnpm 解析报错', cwd: 'D:\\Projects\\osuply', lastActivityAt: NOW - 26 * H, turns: 3, todos: [{ content: '复现 hoisted 模式下的 peer 冲突', status: 'pending' }] }),
       session({ id: 's-3', title: '迁移 CI 缓存到本地', cwd: 'D:\\Projects\\osuply', lastActivityAt: NOW - 3 * D, turns: 9 }),
-      session({ id: 's-4', title: '整理 README 部署章节', cwd: 'D:\\Projects\\osuply', lastActivityAt: NOW - 5 * D, turns: 5 }),
+      session({ id: 's-4', title: '整理 README 部署章节', cwd: 'D:\\Projects\\osuply-old', lastActivityAt: NOW - 5 * D, turns: 5 }),
     ],
   })
   osuply.lastActivityAt = NOW - 30 * 60_000
@@ -114,5 +122,34 @@ export function mockState(): WorkbenchState {
     generatedAt: NOW,
     projects: [osuply, onenote, dshFairy, deadPath, archived, orphan],
     warnings: [],
+    diagnostics: {
+      cacheIssues: [
+        { kind: 'no-record', sessionId: 's-11', title: null, cwd: 'C:\\Users\\yolo\\.dsh' },
+        { kind: 'no-title', sessionId: 's-8', title: null, cwd: 'D:\\Projects\\moved-away' },
+      ],
+      unclaimed: [
+        {
+          sessionId: 'edict-7f3c',
+          title: '子代理：统计本机转录',
+          cwd: 'C:\\Users\\yolo\\.dsh',
+          createdAt: NOW - 4 * D,
+          origin: 'subagent',
+          sizeBytes: 1_240_000,
+          dirName: 'edict-7f3c',
+          pathRegistered: false,
+        },
+        {
+          sessionId: 'edict-91be',
+          title: null,
+          cwd: 'D:\\Projects\\osuply',
+          createdAt: NOW - 11 * D,
+          origin: 'subagent',
+          sizeBytes: 96_000,
+          dirName: 'edict-91be',
+          pathRegistered: true,
+        },
+      ],
+      staleArchiveRecords: 2,
+    },
   }
 }

@@ -13,9 +13,10 @@
  *    由宿主统一 selectPanel 处理，id 与 main 的 key 对应）
  *  - main：keyed 整页面板，侧栏点亮后工作台占据主区域
  */
-import { createElement, useEffect, useSyncExternalStore } from './react.ts'
+import { createElement, useEffect, useState, useSyncExternalStore } from './react.ts'
 import { WorkbenchApp } from './App.tsx'
 import { bindSessionLiveness, type SessionListSource } from './liveness.ts'
+import { readPref, writePref } from './settings.ts'
 import { themeCss } from './themeCss.ts'
 import {
   consumeResumeDraft,
@@ -82,6 +83,76 @@ function SidebarIcon() {
   )
 }
 
+/** 插件详情卡（设置 → 插件 → 全景概览）里的两个开关 */
+interface ConfigProps {
+  view?: string
+}
+
+function PrefRow(props: {
+  label: string
+  desc: string
+  on: boolean
+  onChange: (next: boolean) => void
+}) {
+  return createElement(
+    'div',
+    { className: 'dsho-cfg-row' },
+    createElement(
+      'div',
+      { className: 'dsho-cfg-txt' },
+      createElement('div', { className: 'dsho-cfg-label' }, props.label),
+      createElement('div', { className: 'dsho-cfg-desc' }, props.desc),
+    ),
+    createElement(
+      'button',
+      {
+        type: 'button',
+        role: 'switch',
+        'aria-checked': props.on,
+        'aria-label': props.label,
+        className: props.on ? 'dsho-switch is-on' : 'dsho-switch',
+        onClick: () => props.onChange(!props.on),
+      },
+      createElement('span', { className: 'dsho-knob' }),
+    ),
+  )
+}
+
+function BundleConfigCard(props?: unknown) {
+  const p = (props ?? {}) as ConfigProps
+  const [sidebar, setSidebar] = useState(() => readPref('sidebarEntry'))
+  const [search, setSearch] = useState(() => readPref('contentSearch'))
+  // 插件列表的折叠态（summary）里不渲染卡片正文，避免占位挤掉官方摘要行
+  if (p.view === 'summary') return null
+  return createElement(
+    'div',
+    { className: 'dsho-cfg' },
+    createElement(PrefRow, {
+      label: '侧栏入口',
+      desc: '左侧栏显示全景概览格子（改动后需刷新页面）',
+      on: sidebar,
+      onChange: (next: boolean) => {
+        setSidebar(next)
+        writePref('sidebarEntry', next)
+      },
+    }),
+    createElement(PrefRow, {
+      label: '正文检索',
+      desc: '搜索框按需扫描转录正文（只读，不发网络请求、不激活会话）',
+      on: search,
+      onChange: (next: boolean) => {
+        setSearch(next)
+        writePref('contentSearch', next)
+      },
+    }),
+    createElement(
+      'div',
+      { className: 'dsho-cfg-hint' },
+      '开关只存本机偏好（localStorage），不写宿主配置；卸载插件即彻底失效。',
+    ),
+  )
+}
+
 export function apply(ctx: ClientCtx): void {
   // ⚠ 不要在 apply 里 ctx.get('uiWorkspace')：该调用可能阻塞插件激活 → 整页 boot 永久挂起
   // （2026-11-01 实测：卡死所有页面）。改为「续接」点击时惰性获取（届时服务必然就绪）。
@@ -135,12 +206,15 @@ export function apply(ctx: ClientCtx): void {
   }, 'dsh-overview liveness')
 
   // 左侧栏格子：一枚小图标（对齐官方行高与图标规格）
-  ctx.slots.inject('sidebar.panellist', () =>
-    ctx.slots.register(
-      { name: 'sidebar.panellist', id: 'overview', order: 2, label: '全景概览' },
-      () => createElement(SidebarIcon),
-    ),
-  )
+  // 关掉入口时连 slot 一起不注册——留着隐藏容器只会在侧栏里占一格空气。
+  if (readPref('sidebarEntry')) {
+    ctx.slots.inject('sidebar.panellist', () =>
+      ctx.slots.register(
+        { name: 'sidebar.panellist', id: 'overview', order: 2, label: '全景概览' },
+        () => createElement(SidebarIcon),
+      ),
+    )
+  }
 
   // 主区域整页面板：key 与侧栏格子的 id 对应，点击格子即点亮
   ctx.slots.inject('main', () =>
@@ -158,6 +232,14 @@ export function apply(ctx: ClientCtx): void {
     ctx.slots.register(
       { name: 'conversation.input.dock', id: 'overview-resume-draft', order: 100 },
       (props?: unknown) => createElement(ResumeDraftInjector, (props ?? {}) as DockProps),
+    ),
+  )
+
+  // 插件详情卡：不在则静默跳过（能力探测，不假设 slot 一定存在）
+  ctx.slots.inject('plugins.bundle.config', () =>
+    ctx.slots.register(
+      { name: 'plugins.bundle.config', key: 'dsh-overview' },
+      (props?: unknown) => createElement(BundleConfigCard, (props ?? {}) as Record<string, unknown>),
     ),
   )
 }

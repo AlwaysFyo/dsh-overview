@@ -7,4 +7,10 @@ const style = document.createElement('style')
 style.textContent = themeCss
 document.head.appendChild(style)
 
+// 沙盒便利：?theme=dark|light 预设主题（写 localStorage，与顶栏切换同一存储）
+try {
+  const t = new URLSearchParams(location.search).get('theme')
+  if (t === 'dark' || t === 'light') localStorage.setItem('dshw-theme', t)
+} catch {}
+
 createRoot(document.getElementById('root')!).render(<WorkbenchApp />)

@@ -21,7 +21,16 @@ export function fmtNum(n: number): string {
   return String(n)
 }
 
-/** 纯文本里转义正则元字符 */
-export function escapeRegExp(s: string): string {
-  return s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+/**
+ * 数据新鲜度的粗粒度文案：刚刚 / 几分钟前 / 几小时前 / 几天前。
+ * 与 fmtRelative 的区别：不落具体时刻——「最近活动 · 昨天 22:41」这种精确表述
+ * 放在摘要位太重，这里的档位只需要回答「停了多久」。
+ */
+export function freshnessLabel(ms: number | null, now = Date.now()): string {
+  if (ms == null) return '—'
+  const d = now - ms
+  if (d < 60_000) return '刚刚'
+  if (d < 3600_000) return '几分钟前'
+  if (d < 24 * 3600_000) return '几小时前'
+  return '几天前'
 }

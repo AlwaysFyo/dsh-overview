@@ -1,5 +1,8 @@
 node_modules/
-lib/
 *.log
 *.tgz
 .refs/
+.preview/
+# lib/ 不再忽略：lib/index.js + lib/client.js 是插件的运行产物，宿主从 git 地址
+# 安装时只拉仓库（不走 npm pack），没有 lib 插件就加载不了——「GitHub 安装后无法
+# 连接」的根因（2026-11-05）。构建产物入库，跟随每次 build 更新。

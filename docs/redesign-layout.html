@@ -1,0 +1,989 @@
+<!doctype html>
+<html lang="zh-CN" data-theme="auto">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>全景概览 · UI 改版原型（浅/深 + 结构标注）</title>
+<style>
+/* ===================== 设计 token ===================== */
+:root {
+  --bg:#F5F6F7; --surface:#FFFFFF; --surface-2:#EFF0F2;
+  --ink:#1F2329; --ink-2:#5A6068; --ink-3:#767D87;
+  --line:#E5E6EB; --line-2:#C9CDD4;
+  --accent:#3370FF; --accent-ink:#FFFFFF; --accent-bg:#E1EAFF; --accent-line:#A6C0FF;
+  --accent-bg-weak:#F2F6FF; --cbx-line:#D5D8DC;
+  --cell-line:#DEE0E3; --cell-line-v:#EFF0F1; --row-line:#F0F1F2; --surface-hover:#F2F3F5;
+  --amber:#B25E00; --amber-bg:#FFF4E0; --danger:#D83931; --ok:#2EA121;
+  --sh1:0 1px 2px rgba(31,35,41,.06); --sh2:0 4px 12px rgba(31,35,41,.10);
+  --radius:12px; --radius-sm:8px; --tint:14%;
+  --h1:#245BDB; --h2:#6A45D9; --h3:#0E8274; --h4:#A9610A; --h5:#C0392E; --h6:#2E7A20;
+  --ease:cubic-bezier(.16,1,.3,1);
+}
+html[data-theme="dark"] {
+  --bg:#141517; --surface:#1E1F22; --surface-2:#2A2C30;
+  --ink:#E8EAED; --ink-2:#A9AEB8; --ink-3:#767C86;
+  --line:#2E3034; --line-2:#42464C;
+  --accent:#6E9BFF; --accent-ink:#0E1524; --accent-bg:#1C2740; --accent-line:#3D5A9E;
+  --accent-bg-weak:#1B2333; --cbx-line:#4A4E55;
+  --cell-line:#35383D; --cell-line-v:#2C2F33; --row-line:#26282B; --surface-hover:#2E3034;
+  --amber:#E8A33D; --amber-bg:#35290F; --danger:#FF7A72; --ok:#54C36A;
+  --sh1:0 1px 2px rgba(0,0,0,.4); --sh2:0 6px 18px rgba(0,0,0,.5);
+  --tint:26%;
+  --h1:#7FA7FF; --h2:#B3A1FF; --h3:#43C6B7; --h4:#E0A84E; --h5:#FF9A8F; --h6:#79C86A;
+}
+@media (prefers-color-scheme: dark) {
+  html[data-theme="auto"] {
+    --bg:#141517; --surface:#1E1F22; --surface-2:#2A2C30;
+    --ink:#E8EAED; --ink-2:#A9AEB8; --ink-3:#767C86;
+    --line:#2E3034; --line-2:#42464C;
+    --accent:#6E9BFF; --accent-ink:#0E1524; --accent-bg:#1C2740; --accent-line:#3D5A9E;
+  --accent-bg-weak:#1B2333; --cbx-line:#4A4E55;
+  --cell-line:#35383D; --cell-line-v:#2C2F33; --row-line:#26282B; --surface-hover:#2E3034;
+    --amber:#E8A33D; --amber-bg:#35290F; --danger:#FF7A72; --ok:#54C36A;
+    --sh1:0 1px 2px rgba(0,0,0,.4); --sh2:0 6px 18px rgba(0,0,0,.5);
+    --tint:26%;
+    --h1:#7FA7FF; --h2:#B3A1FF; --h3:#43C6B7; --h4:#E0A84E; --h5:#FF9A8F; --h6:#79C86A;
+  }
+}
+
+* { box-sizing:border-box; }
+html, body { margin:0; padding:0; }
+body {
+  background:var(--bg); color:var(--ink);
+  font:13px/1.6 'Segoe UI','Microsoft YaHei UI','PingFang SC',sans-serif;
+  -webkit-font-smoothing:antialiased;
+  transition:background 160ms ease, color 160ms ease;
+}
+.num { font-variant-numeric:tabular-nums; }
+.mono { font-family:'Cascadia Code','JetBrains Mono',Consolas,monospace; }
+
+/* ===================== 命令条（sticky 48px） ===================== */
+.cmdbar {
+  position:sticky; top:0; z-index:30;
+  height:48px; padding:0 20px;
+  display:flex; align-items:center; gap:16px;
+  background:var(--bg); border-bottom:1px solid var(--line);
+  transition:box-shadow 160ms ease;
+}
+.cmdbar.is-scrolled { box-shadow:var(--sh2); }
+.brand { display:flex; align-items:center; gap:9px; font-size:14px; font-weight:600; letter-spacing:.2px; flex-shrink:0; }
+.brand-mark { width:18px; height:18px; border-radius:5px; background:var(--accent); display:grid; place-items:center; }
+.brand-mark i { width:7px; height:7px; border-radius:2px; background:var(--accent-ink); display:block; }
+
+.search {
+  position:relative; flex-shrink:0; width:260px;
+  transition:width 160ms var(--ease);
+}
+.search:focus-within { width:360px; }
+.search svg { position:absolute; left:9px; top:50%; transform:translateY(-50%); width:14px; height:14px; stroke:var(--ink-3); fill:none; stroke-width:1.8; }
+.search input {
+  width:100%; height:30px; padding:0 54px 0 30px; font:inherit; font-size:13px;
+  color:var(--ink); background:var(--surface); border:1px solid var(--line); border-radius:var(--radius-sm);
+  transition:border-color 160ms var(--ease), box-shadow 160ms var(--ease);
+}
+.search input::placeholder { color:var(--ink-3); }
+.search input:focus { outline:none; border-color:var(--accent); box-shadow:0 0 0 3px var(--accent-bg); }
+.search kbd {
+  position:absolute; right:6px; top:50%; transform:translateY(-50%);
+  font:inherit; font-size:10.5px; color:var(--ink-3); background:var(--surface-2);
+  border:1px solid var(--line); border-radius:4px; padding:0 5px; line-height:16px;
+}
+.search:focus-within kbd { opacity:0; }
+
+.status { margin-left:auto; display:flex; align-items:center; gap:4px; }
+.stat {
+  display:inline-flex; align-items:center; gap:6px; height:28px; padding:0 9px;
+  font:inherit; font-size:12px; color:var(--ink-2); background:none; border:0; border-radius:6px; cursor:pointer;
+  transition:background 120ms ease, color 120ms ease;
+}
+.stat:hover { background:var(--surface-2); color:var(--ink); }
+.stat b { font-weight:600; color:var(--ink); font-variant-numeric:tabular-nums; }
+.stat.is-run b { color:var(--accent); }
+.stat.is-todo b { color:var(--amber); }
+.stat.is-diag b { color:var(--amber); }
+.led { width:6px; height:6px; border-radius:50%; background:var(--accent); box-shadow:0 0 0 3px var(--accent-bg); }
+.led-warn { width:6px; height:6px; border-radius:50%; background:var(--amber); box-shadow:0 0 0 3px var(--amber-bg); }
+
+.icon-btn {
+  width:32px; height:32px; display:grid; place-items:center; flex-shrink:0;
+  background:none; border:1px solid transparent; border-radius:var(--radius-sm);
+  color:var(--ink-2); font-size:14px; cursor:pointer; transition:all 120ms ease;
+}
+.icon-btn:hover { background:var(--surface-2); color:var(--ink); border-color:var(--line); }
+.icon-btn svg { width:16px; height:16px; stroke:currentColor; fill:none; stroke-width:1.6; }
+
+.btn-primary {
+  height:30px; padding:0 13px; flex-shrink:0;
+  display:inline-flex; align-items:center; gap:5px;
+  font:inherit; font-size:12.5px; font-weight:500;
+  color:var(--accent-ink); background:var(--accent); border:1px solid var(--accent);
+  border-radius:var(--radius-sm); cursor:pointer;
+  transition:filter 120ms ease, transform 120ms ease;
+}
+.btn-primary:hover { filter:brightness(1.06); }
+.btn-primary:active { transform:translateY(1px); }
+.btn-ghost {
+  height:30px; padding:0 12px; flex-shrink:0;
+  display:inline-flex; align-items:center; gap:5px;
+  font:inherit; font-size:12.5px; color:var(--ink);
+  background:var(--surface); border:1px solid var(--line-2); border-radius:var(--radius-sm); cursor:pointer;
+  transition:background 120ms ease, border-color 120ms ease;
+}
+.btn-ghost:hover { background:var(--surface-2); border-color:var(--ink-3); }
+.btn-ghost:active { transform:translateY(1px); }
+
+/* ===================== 内容容器（全屏铺满） ===================== */
+.page { width:100%; padding:0 20px 56px; }
+
+/* 页头（非 sticky） */
+.pagehead { display:flex; align-items:flex-start; gap:16px; padding:22px 0 16px; }
+.pagehead h1 { margin:0; font-size:22px; font-weight:600; letter-spacing:-.2px; line-height:1.3; }
+.pagehead .sub { margin:5px 0 0; font-size:12.5px; color:var(--ink-2); }
+.pagehead .sub .sep { margin:0 6px; color:var(--line-2); }
+.pagehead .sub .warn { color:var(--amber); cursor:pointer; }
+
+
+/* 分区标题 */
+.sec-head { display:flex; align-items:baseline; gap:10px; margin:26px 0 10px; }
+.sec-head h2 { margin:0; font-size:13.5px; font-weight:600; letter-spacing:.1px; }
+.sec-head .hint { font-size:11.5px; color:var(--ink-3); }
+.sec-head .more-link { margin-left:auto; font-size:12px; color:var(--ink-2); background:none; border:0; cursor:pointer; padding:0; }
+.sec-head .more-link:hover { color:var(--accent); }
+
+/* ===================== ① 继续工作 ===================== */
+.rows { list-style:none; margin:0; padding:0; background:var(--surface); border:1px solid var(--line); border-radius:var(--radius); overflow:hidden; }
+.row {
+  display:flex; align-items:center; gap:10px; height:48px; padding:0 12px;
+  border-bottom:1px solid var(--line); cursor:pointer;
+  transition:background 120ms ease;
+}
+.row:last-child { border-bottom:0; }
+.row:hover { background:var(--surface-2); }
+.row .row-title { min-width:0; flex:1; font-size:13px; font-weight:500; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.row .row-sub { font-size:11.5px; color:var(--ink-3); white-space:nowrap; }
+.row .row-time { width:78px; text-align:right; font-size:11.5px; color:var(--ink-3); white-space:nowrap; }
+.row .row-more {
+  width:24px; height:24px; display:grid; place-items:center; flex-shrink:0;
+  background:none; border:0; border-radius:6px; color:var(--ink-3); cursor:pointer;
+  opacity:0; transition:opacity 80ms ease, background 120ms ease;
+}
+.row:hover .row-more, .row:focus-within .row-more { opacity:1; }
+.row .row-more:hover { background:var(--surface-2); color:var(--ink); }
+.row.is-running .led { flex-shrink:0; }
+
+/* 项目图标：单色线性，不用彩色字母方块（Base 用的是文件图标，我们没有图标数据） */
+.picon { width:20px; height:20px; flex:0 0 20px; display:grid; place-items:center; color:var(--ink-2); }
+.picon svg { width:17px; height:17px; }
+
+
+/* 标签 */
+.chip { font-size:11px; color:var(--ink-2); background:var(--surface-2); border-radius:4px; padding:0 6px; line-height:18px; white-space:nowrap; }
+.tag-warn { font-size:11px; color:var(--amber); background:var(--amber-bg); border-radius:4px; padding:0 6px; line-height:18px; white-space:nowrap; }
+.dot-run { width:7px; height:7px; border-radius:50%; background:var(--accent); box-shadow:0 0 0 3px var(--accent-bg); flex-shrink:0; }
+
+/* ===================== ② 工作区：tab + 排序 ===================== */
+.bar { display:flex; align-items:flex-end; gap:12px; border-bottom:1px solid var(--line); margin:26px 0 14px; }
+.tabs { display:flex; gap:22px; }
+.tab {
+  position:relative; background:none; border:0; padding:6px 2px 9px;
+  font:inherit; font-size:13px; color:var(--ink-2); cursor:pointer;
+  transition:color 120ms ease;
+}
+.tab:hover { color:var(--ink); }
+.tab i { font-style:normal; font-size:11.5px; color:var(--ink-3); margin-left:4px; }
+.tab[aria-selected="true"] { color:var(--ink); font-weight:600; }
+.tab[aria-selected="true"]::after { content:''; position:absolute; left:0; right:0; bottom:-1px; height:2px; background:var(--accent); border-radius:1px; }
+.sortbtn {
+  display:inline-flex; align-items:center; gap:5px;
+  height:26px; padding:0 8px; font:inherit; font-size:12px; color:var(--ink-2);
+  background:none; border:0; border-radius:6px; cursor:pointer;
+}
+.sortbtn:hover { background:var(--surface-2); color:var(--ink); }
+.sortbtn .caret { font-size:9px; opacity:.7; }
+.bar-right { margin-left:auto; display:flex; align-items:center; gap:8px; margin-bottom:6px; }
+.bar-sep { width:1px; height:16px; background:var(--line); }
+
+/* ===================== 宫格视图（复刻 Base 宫格） ===================== */
+.grid {
+  display:grid; gap:12px; justify-content:start;
+  grid-template-columns:repeat(auto-fill, var(--card-w, 240px));
+}
+.card {
+  position:relative; display:flex; flex-direction:column;
+  background:var(--surface); border:1px solid var(--cell-line); border-radius:8px;
+  overflow:hidden; cursor:pointer; transition:box-shadow 120ms var(--ease), border-color 120ms var(--ease);
+}
+.card:hover { border-color:var(--line-2); box-shadow:var(--sh2); }
+.card:focus-visible { outline:2px solid var(--accent); outline-offset:2px; }
+
+/* 缩略图：Base 是内缩 7px 的真实预览图（.gpf-biz-file-preview-pure-img），DSH 没有预览图 → 同位置占位块 */
+.card .thumb {
+  margin:7px 7px 0; height:118px; flex:0 0 118px; border-radius:6px;
+  display:grid; place-items:center; background:var(--surface-2); color:var(--ink-3);
+}
+.card.no-thumb .thumb { display:none; }
+.card .thumb svg { width:30px; height:30px; }
+
+/* 主信息：Base 的 grid-item-info-name / -desc */
+.card-main { display:flex; flex-direction:column; gap:3px; padding:9px 12px 12px; min-width:0; }
+.card-title { display:flex; align-items:center; gap:7px; min-width:0; }
+.card-title .n { font-size:14px; font-weight:500; color:var(--ink); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.card-title .state { margin-left:auto; font-size:11px; color:var(--ink-3); white-space:nowrap; display:inline-flex; align-items:center; gap:4px; }
+.card.is-running .card-title .state { color:var(--accent); font-weight:600; }
+.card .more {
+  width:20px; height:20px; display:grid; place-items:center; flex:0 0 20px;
+  background:none; border:0; border-radius:5px; color:var(--ink-3); cursor:pointer;
+  opacity:0; transition:opacity 90ms var(--ease);
+}
+.card:hover .more, .card:focus-within .more { opacity:1; }
+.card .more:hover { background:var(--surface-2); color:var(--ink); }
+.card-path { font-family:ui-monospace,"Cascadia Mono",Consolas,monospace; font-size:11px; color:var(--ink-3); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.card-desc { font-size:12px; color:var(--ink-3); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+
+/* 卡片勾选：默认藏，hover / 聚焦 / 已选中时出现在缩略图左上角（Base 的 multi-select-checkbox-container） */
+.card .card-cbx { position:absolute; left:9px; top:9px; z-index:2; opacity:0; transition:opacity 120ms var(--ease); }
+.card:hover .card-cbx,
+.card:focus-within .card-cbx,
+.card.is-picked .card-cbx { opacity:1; }
+.card.is-picked { border-color:var(--accent-line); background:var(--accent-bg-weak); }
+
+/* ===================== 区段头：标题 + 排序 + 设置 + 视图分段 ===================== */
+.bar { display:flex; align-items:center; gap:14px; height:36px; margin:6px 0 10px; }
+.sectitle { margin:0; font-size:15px; font-weight:600; color:var(--ink); letter-spacing:-.1px; }
+.bar .tabs { gap:16px; }
+.bar-right { margin-left:auto; display:flex; align-items:center; gap:6px; position:relative; }
+.setbtn {
+  height:28px; padding:0 8px; display:inline-flex; align-items:center; gap:5px;
+  background:none; border:0; border-radius:6px; font:inherit; font-size:12px; color:var(--ink-2); cursor:pointer;
+}
+.setbtn:hover { background:var(--surface-hover); color:var(--ink); }
+.setbtn svg { width:16px; height:16px; fill:currentColor; }
+
+/* 视图分段：Base 的 ud__radio-group--mode-solid */
+.vseg { display:flex; padding:2px; background:var(--surface-2); border-radius:6px; gap:2px; }
+.vseg-item {
+  width:26px; height:24px; display:grid; place-items:center; border:0; padding:0; border-radius:4px;
+  background:none; color:var(--ink-3); cursor:pointer;
+}
+.vseg-item svg { width:15px; height:15px; fill:currentColor; }
+.vseg-item:hover { color:var(--ink-2); }
+.vseg-item[aria-pressed="true"] { background:var(--surface); color:var(--ink); box-shadow:var(--sh1); }
+
+/* 设置浮层 */
+.pop {
+  position:absolute; right:0; top:34px; z-index:30; min-width:188px; padding:6px;
+  background:var(--surface); border:1px solid var(--cell-line); border-radius:8px; box-shadow:var(--sh2);
+}
+.pop[hidden] { display:none; }
+.pop-h { padding:4px 8px 6px; font-size:11px; color:var(--ink-3); display:flex; align-items:center; gap:6px; }
+.pop-item { display:flex; align-items:center; gap:8px; height:30px; padding:0 8px; border-radius:6px; font-size:12.5px; color:var(--ink); cursor:pointer; }
+.pop-item:hover { background:var(--surface-hover); }
+.pop-sep { height:1px; background:var(--line); margin:4px 0; }
+.pop-row { display:flex; gap:4px; padding:0 8px 6px; }
+.ppill {
+  flex:1; height:26px; border:1px solid var(--cell-line); background:var(--surface); border-radius:6px;
+  font:inherit; font-size:12px; color:var(--ink-2); cursor:pointer;
+}
+.ppill:hover { background:var(--surface-hover); }
+.ppill.is-on { border-color:var(--accent); background:var(--accent-bg); color:var(--accent); }
+
+/* ===================== 最近访问列表（照抄 Base 的 table-view DOM） ===================== */
+.listview { display:none; background:var(--surface); --row-h:44px; font-variant-numeric:tabular-nums; }
+body.view-list .grid { display:none; }
+body.view-list .listview { display:block; }
+
+/* 列：勾选 20 · 项目名称 flex · 路径 flex · 会话 84 · 待办 84 · 最近活动 112 · 操作 40 */
+.lhead, .lrow {
+  display:grid;
+  grid-template-columns:20px minmax(0,1.6fr) minmax(0,1.5fr) 84px 84px 112px 40px;
+  align-items:center;
+}
+.lc { min-width:0; height:100%; display:flex; align-items:center; gap:8px; padding:0 8px; position:relative; }
+.lc[hidden] { display:none; }
+
+/* 表头：40px、12px 次级文字、hover 出底色与列宽手柄 */
+.lhead { height:40px; font-size:12px; font-weight:500; color:var(--ink-3); border-bottom:1px solid var(--cell-line); }
+.lhead .lc { cursor:default; }
+.lhead .lc:hover { background:var(--surface-hover); }
+.lhead .resizer { position:absolute; right:0; top:8px; bottom:8px; width:1px; background:var(--cell-line); opacity:0; }
+.lhead .lc:hover .resizer { opacity:1; }
+.lhead .lc:last-child .resizer { display:none; }
+
+/* 行：44px、13px，只有一根极淡的分隔线，不画竖线 */
+.lrow {
+  height:var(--row-h); font-size:13px; color:var(--ink);
+  border-bottom:1px solid var(--row-line); cursor:pointer; transition:background 90ms linear;
+}
+.lrow:hover { background:var(--surface-hover); }
+.lrow.is-picked { background:var(--accent-bg); }
+.lrow.is-picked:hover { background:var(--accent-bg); }
+
+/* 勾选列：20px，勾选框 hover / 已选才出现（Base 的 doc-list__selection-cell 同宽） */
+.lc-cb { padding:0; justify-content:center; color:var(--ink-3); font-size:12px; }
+.lc-cb .cbx-wrap { position:absolute; opacity:0; transition:opacity 100ms var(--ease); }
+.lrow:hover .lc-cb .cbx-wrap, .lrow.is-picked .lc-cb .cbx-wrap { opacity:1; }
+.lhead .lc-cb .cbx-wrap { opacity:.55; }
+.lhead .lc-cb:hover .cbx-wrap { opacity:1; }
+
+/* 单元格内容 */
+.lc-name .picon { width:18px; flex-basis:18px; } .lc-name .picon svg { width:15px; height:15px; }
+.lc-name .n { font-weight:500; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.lc-path .mono { font-family:ui-monospace,"Cascadia Mono",Consolas,monospace; font-size:12px; color:var(--ink-3); white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.lc-sessions .v, .lc-todos .v { color:var(--ink-2); font-variant-numeric:tabular-nums; }
+.lc-todos .v.hot { color:var(--amber); font-weight:600; }
+.lc-when .v { color:var(--ink-3); font-size:12px; white-space:nowrap; }
+.lc-act { justify-content:center; padding:0; }
+.lc-act .m3 {
+  width:24px; height:24px; display:grid; place-items:center; border:0; background:none; border-radius:4px;
+  color:var(--ink-3); cursor:pointer; opacity:0; transition:opacity 90ms var(--ease);
+}
+.lrow:hover .lc-act .m3 { opacity:1; }
+.lc-act .m3:hover { background:var(--surface-2); color:var(--ink); }
+.lc-act .m3 svg { width:16px; height:16px; fill:currentColor; }
+
+/* 表格末尾「新增记录」 */
+.lnew { display:flex; align-items:center; gap:6px; height:var(--row-h); padding:0 12px; font-size:13px; color:var(--ink-3); cursor:pointer; }
+.lnew:hover { background:var(--surface-hover); color:var(--ink-2); }
+.lnew i { font-style:normal; font-size:14px; line-height:1; }
+
+/* ===================== 结构标注模式 ===================== */
+body.annotate .cmdbar,
+body.annotate .pagehead,
+body.annotate .continue,
+body.annotate .workspaces { outline:1px dashed var(--accent-line); outline-offset:6px; }
+body.annotate [data-label] { position:relative; }
+body.annotate [data-label]::before {
+  content:attr(data-label); position:absolute; z-index:5;
+  top:-20px; left:-6px; font-size:10.5px; letter-spacing:.3px;
+  color:var(--accent); background:var(--bg); padding:0 4px;
+  font-family:'Cascadia Code',Consolas,monospace;
+}
+body.annotate .card { outline:1px dashed var(--accent-line); outline-offset:2px; }
+
+/* ===================== 勾选框（照抄 Base 的 ud__checkbox 结构） ===================== */
+/* 16×16 方框 · 圆角 3 · 1px 描边 · 12×12 内联 SVG 勾/半选 · 无灰底热区 */
+.cbx-wrap {
+  display:inline-flex; align-items:center; justify-content:center;
+  width:18px; height:18px; flex-shrink:0; cursor:pointer;
+}
+.cbx-input { position:absolute; width:1px; height:1px; opacity:0; margin:0; pointer-events:none; }
+.cbx {
+  width:16px; height:16px; box-sizing:border-box; display:inline-flex; align-items:center; justify-content:center;
+  border:1px solid var(--cbx-line); border-radius:3px; background:var(--surface); color:var(--accent-ink);
+  transition:background 120ms var(--ease), border-color 120ms var(--ease), transform 120ms var(--ease);
+}
+.cbx svg { width:12px; height:12px; display:none; }
+.cbx-wrap:hover .cbx { border-color:var(--ink-3); }
+.cbx-wrap.fake-hover .cbx { border-color:var(--ink-3); }
+.cbx-input:active + .cbx { transform:scale(.92); }
+.cbx-input:focus-visible + .cbx { border-color:var(--accent); box-shadow:0 0 0 3px var(--accent-bg); }
+.cbx-input:checked + .cbx { background:var(--accent); border-color:var(--accent); }
+.cbx-input:checked + .cbx .ck { display:block; }
+.cbx-input:indeterminate + .cbx { background:var(--accent); border-color:var(--accent); }
+.cbx-input:indeterminate + .cbx .ck { display:none; }
+.cbx-input:indeterminate + .cbx .ind { display:block; }
+.cbx-input:disabled + .cbx { opacity:.4; }
+.cbx-wrap:has(.cbx-input:disabled) { cursor:not-allowed; }
+/* 大一号：详情页批量条、列表表头全选 */
+.cbx-16 .cbx { width:18px; height:18px; }
+.cbx-16 .cbx svg { width:14px; height:14px; }
+
+/* 选中行：浅蓝底，不加竖条（Base 里就是纯底色） */
+.row.is-picked { background:var(--accent-bg-weak); }
+
+/* 待办行勾选后的完成态（input 在 label 里，必须用 :has 上溯，不能用兄弟选择器） */
+.todo-row:has(.cbx-input:checked) .row-title { color:var(--ink-3); text-decoration:line-through; text-decoration-thickness:1px; }
+.todo-row:has(.cbx-input:checked) .tag-warn { opacity:.5; }
+
+/* 底部批量条 */
+.selbar {
+  position:fixed; left:50%; bottom:18px; transform:translate(-50%, 12px);
+  display:flex; align-items:center; gap:4px; padding:6px 8px 6px 14px;
+  background:var(--surface); border:1px solid var(--line-2); border-radius:10px; box-shadow:var(--sh2);
+  font-size:12.5px; opacity:0; pointer-events:none; transition:opacity 140ms var(--ease), transform 140ms var(--ease); z-index:40;
+}
+.selbar.on { opacity:1; transform:translate(-50%, 0); pointer-events:auto; }
+.selbar .cnt { color:var(--ink-2); font-variant-numeric:tabular-nums; margin-right:6px; }
+.selbar .cnt b { color:var(--ink); font-weight:600; }
+.selbar .sep { width:1px; height:16px; background:var(--line); margin:0 6px; }
+.selbar button {
+  font:inherit; color:var(--ink); background:none; border:0; border-radius:6px;
+  padding:4px 9px; cursor:pointer;
+}
+.selbar button:hover { background:var(--surface-2); }
+.selbar button.danger { color:var(--danger); }
+.selbar button.danger:hover { background:var(--danger-bg, rgba(216,57,49,.08)); }
+
+/* 控件规格区（仅结构标注模式显示） */
+.controls { display:none; }
+body.annotate .controls { display:block; }
+.ctrl-grid {
+  display:flex; flex-wrap:wrap; gap:12px 26px; align-items:center;
+  padding:14px 16px; background:var(--surface); border:1px solid var(--line); border-radius:var(--radius);
+}
+.ctrl { display:inline-flex; align-items:center; gap:7px; font-size:12px; color:var(--ink-2); }
+.ctrl .kbd { font-size:10.5px; color:var(--ink-3); }
+
+/* 右下角原型工具条（非设计本身的一部分） */
+.tools {
+  position:fixed; right:18px; bottom:18px; z-index:50;
+  display:flex; align-items:center; gap:2px; padding:3px;
+  background:var(--surface); border:1px solid var(--line); border-radius:999px; box-shadow:var(--sh2);
+}
+.tools button {
+  font:inherit; font-size:11.5px; height:24px; padding:0 10px; border:0; border-radius:999px;
+  background:none; color:var(--ink-2); cursor:pointer;
+}
+.tools button:hover { background:var(--surface-2); color:var(--ink); }
+.tools button[aria-pressed="true"] { background:var(--accent-bg); color:var(--accent); }
+.tools .div { width:1px; height:14px; background:var(--line); }
+
+@media (max-width:1100px) {
+  .pagehead { flex-wrap:wrap; }
+}
+@media (max-width:900px) {
+  .brand { font-size:0; gap:0; }
+  .search { width:32px; }
+  .search:focus-within { width:240px; }
+  .status .stat span { display:none; }
+  .btn-primary { padding:0 9px; }
+  .btn-ghost { padding:0 9px; }
+  .btn-primary .txt, .btn-ghost .txt { display:none; }
+  .lhead, .lrow { grid-template-columns:40px minmax(0,1fr) 56px 48px 92px 40px; }
+  .lhead > *:nth-child(3), .lrow > .lp { display:none; }
+  .lhead > *:nth-child(4), .lrow > .lq { display:none; }
+}
+@media (prefers-reduced-motion: reduce) { * { transition:none !important; animation:none !important; } }
+</style>
+</head>
+<body>
+
+<!-- ========== 命令条 ========== -->
+<header class="cmdbar" id="cmdbar" data-label="① 命令条 · 48px sticky">
+  <div class="brand"><span class="brand-mark"><i></i></span>全景概览</div>
+
+  <div class="search">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
+    <input type="search" placeholder="搜索项目、会话、待办" aria-label="搜索项目、会话、待办与正文" />
+    <kbd>⌘K</kbd>
+  </div>
+
+  <div class="status">
+    <button class="stat is-run" type="button"><span class="led"></span><b>2</b><span>运行中</span></button>
+    <button class="stat is-todo" type="button"><b>15</b><span>待办</span></button>
+    <button class="stat is-diag" type="button" title="诊断：1 条缓存问题 · 10 条未归属会话"><span class="led-warn"></span><b>11</b><span>诊断</span></button>
+  </div>
+
+  <button class="icon-btn" id="themeBtn" type="button" title="切换主题（亮 / 暗 / 跟随系统）">☾</button>
+  <span class="bar-sep"></span>
+  <button class="btn-ghost" type="button"><span>＋</span><span class="txt">新建项目</span></button>
+  <button class="btn-primary" type="button"><span>＋</span><span class="txt">新建会话</span></button>
+</header>
+
+<div class="page">
+
+  <!-- ========== 页头 ========== -->
+  <div class="pagehead" data-label="② 页头 · 不吸顶">
+    <div>
+      <h1>工作区</h1>
+      <p class="sub">
+        9 个工作区<span class="sep">·</span>37 个会话<span class="sep">·</span>2 个运行中
+        <span class="sep">·</span>数据 22:41 更新
+      </p>
+    </div>
+  </div>
+
+  <!-- ========== ① 继续工作 ========== -->
+  <section class="continue" data-label="③ 继续工作 · 会话级直达">
+    <div class="sec-head">
+      <h2>继续工作</h2>
+      <span class="hint">最近 7 天 · 6 条</span>
+      <button class="more-link" type="button">全部会话 →</button>
+    </div>
+
+    <ul class="rows">
+      <li class="row is-running">
+        <span class="dot-run"></span>
+        <span class="picon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" aria-hidden="true"><path d="M3.5 7.2c0-1.1.9-2 2-2h3.1c.53 0 1.04.21 1.41.59l.9.9c.19.19.44.29.71.29h6.9c1.1 0 2 .9 2 2v8.4c0 1.1-.9 2-2 2h-13c-1.1 0-2-.9-2-2V7.2Z"/></svg></span>
+        <span class="row-title">按飞书多维表格主页重设 L1 界面</span>
+        <span class="chip">dsh-overview</span>
+        <span class="tag-warn">待办 3</span>
+        <span class="row-time num">12 分钟前</span>
+        <button class="row-more" type="button" aria-label="更多操作">⋯</button>
+      </li>
+      <li class="row">
+        <span class="picon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" aria-hidden="true"><path d="M3.5 7.2c0-1.1.9-2 2-2h3.1c.53 0 1.04.21 1.41.59l.9.9c.19.19.44.29.71.29h6.9c1.1 0 2 .9 2 2v8.4c0 1.1-.9 2-2 2h-13c-1.1 0-2-.9-2-2V7.2Z"/></svg></span>
+        <span class="row-title">修 desktop profile 里陈旧的 link 依赖路径</span>
+        <span class="chip">dsh-onenpc</span>
+        <span class="row-time num">1 小时前</span>
+        <button class="row-more" type="button" aria-label="更多操作">⋯</button>
+      </li>
+      <li class="row">
+        <span class="picon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" aria-hidden="true"><path d="M3.5 7.2c0-1.1.9-2 2-2h3.1c.53 0 1.04.21 1.41.59l.9.9c.19.19.44.29.71.29h6.9c1.1 0 2 .9 2 2v8.4c0 1.1-.9 2-2 2h-13c-1.1 0-2-.9-2-2V7.2Z"/></svg></span>
+        <span class="row-title">户部尚书承办数据统计旨意</span>
+        <span class="chip">.dsh</span>
+        <span class="row-time num">3 小时前</span>
+        <button class="row-more" type="button" aria-label="更多操作">⋯</button>
+      </li>
+      <li class="row">
+        <span class="picon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" aria-hidden="true"><path d="M3.5 7.2c0-1.1.9-2 2-2h3.1c.53 0 1.04.21 1.41.59l.9.9c.19.19.44.29.71.29h6.9c1.1 0 2 .9 2 2v8.4c0 1.1-.9 2-2 2h-13c-1.1 0-2-.9-2-2V7.2Z"/></svg></span>
+        <span class="row-title">对比 Web Fetch 与 Markdown 转换技能</span>
+        <span class="chip">OneNote</span>
+        <span class="tag-warn">待办 1</span>
+        <span class="row-time num">20 小时前</span>
+        <button class="row-more" type="button" aria-label="更多操作">⋯</button>
+      </li>
+      <li class="row">
+        <span class="picon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" aria-hidden="true"><path d="M3.5 7.2c0-1.1.9-2 2-2h3.1c.53 0 1.04.21 1.41.59l.9.9c.19.19.44.29.71.29h6.9c1.1 0 2 .9 2 2v8.4c0 1.1-.9 2-2 2h-13c-1.1 0-2-.9-2-2V7.2Z"/></svg></span>
+        <span class="row-title">会话归属与归档口径核对</span>
+        <span class="chip">default-workspace</span>
+        <span class="row-time num">26 小时前</span>
+        <button class="row-more" type="button" aria-label="更多操作">⋯</button>
+      </li>
+    </ul>
+  </section>
+
+  <!-- ========== ② 工作区 ========== -->
+  <section class="workspaces" data-label="④ 工作区 · tab + 排序 + 卡片/列表">
+    <div class="bar">
+      <h2 class="sectitle">工作区</h2>
+      <div class="tabs" role="tablist" aria-label="工作区状态筛选">
+        <button class="tab" role="tab" aria-selected="true" type="button">进行中<i>9</i></button>
+        <button class="tab" role="tab" aria-selected="false" type="button">已归档<i>0</i></button>
+        <button class="tab" role="tab" aria-selected="false" type="button">全部<i>9</i></button>
+      </div>
+      <div class="bar-right">
+        <button class="sortbtn" type="button">最近活动 <span class="caret">▾</span></button>
+        <button class="setbtn" type="button" data-pop="setPop" aria-haspopup="true" aria-label="设置显示字段与缩略图">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 5a1 1 0 0 1 1-1h18a1 1 0 1 1 0 2H3a1 1 0 0 1-1-1Zm10.5 12.105c.202.75.568 1.447 1.072 2.038l1.17-.128a1.083 1.083 0 0 1 1.11.642l.521 1.19c.707.16 1.44.17 2.15.03l.535-1.22a1.082 1.082 0 0 1 1.11-.642l1.285.141a5.254 5.254 0 0 0 1.047-1.927l-.737-1.013a1.084 1.084 0 0 1 0-1.275l.672-.924a5.26 5.26 0 0 0-1.226-1.989l-1.041.114a1.083 1.083 0 0 1-1.11-.642l-.393-.898a5.193 5.193 0 0 0-2.435.035l-.378.863a1.082 1.082 0 0 1-1.11.642l-.929-.101a5.259 5.259 0 0 0-1.253 2.095l.586.805c.277.38.277.895 0 1.275l-.646.889Zm6.75-1.38c0 .966-.776 1.75-1.733 1.75a1.742 1.742 0 0 1-1.732-1.75c0-.967.776-1.75 1.732-1.75a1.74 1.74 0 0 1 1.733 1.75ZM2 12a1 1 0 0 1 1-1h6a1 1 0 1 1 0 2H3a1 1 0 0 1-1-1Zm0 7a1 1 0 0 1 1-1h6a1 1 0 1 1 0 2H3a1 1 0 0 1-1-1Z" fill="currentColor"/></svg>
+          设置
+        </button>
+        <div class="vseg" role="group" aria-label="视图切换">
+          <button type="button" class="vseg-item" data-view="list" aria-pressed="false" title="列表视图"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3.5 5.5a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3ZM9 3a1 1 0 0 0 0 2h13a1 1 0 1 0 0-2H9Zm0 8a1 1 0 1 0 0 2h13a1 1 0 1 0 0-2H9Zm-1 9a1 1 0 0 1 1-1h13a1 1 0 1 1 0 2H9a1 1 0 0 1-1-1Zm-3-8a1.5 1.5 0 1 1-3 0 1.5 1.5 0 0 1 3 0Zm-1.5 9.5a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3Z" fill="currentColor"/></svg></button>
+          <button type="button" class="vseg-item" data-view="grid" aria-pressed="true" title="宫格视图"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 4a2 2 0 0 1 2-2h5a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V4Zm2 0v5h5V4H4ZM2 15a2 2 0 0 1 2-2h5a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2v-5Zm2 0v5h5v-5H4ZM15 2a2 2 0 0 0-2 2v5a2 2 0 0 0 2 2h5a2 2 0 0 0 2-2V4a2 2 0 0 0-2-2h-5Zm5 2v5h-5V4h5Zm-7 11a2 2 0 0 1 2-2h5a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-5a2 2 0 0 1-2-2v-5Zm2 0v5h5v-5h-5Z" fill="currentColor"/></svg></button>
+        </div>
+        <div class="pop" id="setPop" hidden>
+          <div class="pop-h">显示字段</div>
+          <label class="pop-item"><span class="cbx-wrap"><input class="cbx-input" type="checkbox" data-col="path" checked><span class="cbx"><svg class="ck" viewBox="0 0 12 12" fill="none"><path d="M9.589 2.903l.808.809a.35.35 0 010 .495L5.18 9.425a.35.35 0 01-.495 0l-2.981-2.98a.35.35 0 010-.496l.808-.808a.35.35 0 01.495 0l1.925 1.925 4.163-4.163a.35.35 0 01.495 0z" fill="currentColor"/></svg><svg class="ind" viewBox="0 0 12 12" fill="none"><path d="M2 5.4c0-.22.18-.4.4-.4h7.2c.22 0 .4.18.4.4v1.2a.4.4 0 01-.4.4H2.4a.4.4 0 01-.4-.4V5.4z" fill="currentColor"/></svg></span></span>路径</label>
+          <label class="pop-item"><span class="cbx-wrap"><input class="cbx-input" type="checkbox" data-col="sessions" checked><span class="cbx"><svg class="ck" viewBox="0 0 12 12" fill="none"><path d="M9.589 2.903l.808.809a.35.35 0 010 .495L5.18 9.425a.35.35 0 01-.495 0l-2.981-2.98a.35.35 0 010-.496l.808-.808a.35.35 0 01.495 0l1.925 1.925 4.163-4.163a.35.35 0 01.495 0z" fill="currentColor"/></svg><svg class="ind" viewBox="0 0 12 12" fill="none"><path d="M2 5.4c0-.22.18-.4.4-.4h7.2c.22 0 .4.18.4.4v1.2a.4.4 0 01-.4.4H2.4a.4.4 0 01-.4-.4V5.4z" fill="currentColor"/></svg></span></span>会话数</label>
+          <label class="pop-item"><span class="cbx-wrap"><input class="cbx-input" type="checkbox" data-col="todos" checked><span class="cbx"><svg class="ck" viewBox="0 0 12 12" fill="none"><path d="M9.589 2.903l.808.809a.35.35 0 010 .495L5.18 9.425a.35.35 0 01-.495 0l-2.981-2.98a.35.35 0 010-.496l.808-.808a.35.35 0 01.495 0l1.925 1.925 4.163-4.163a.35.35 0 01.495 0z" fill="currentColor"/></svg><svg class="ind" viewBox="0 0 12 12" fill="none"><path d="M2 5.4c0-.22.18-.4.4-.4h7.2c.22 0 .4.18.4.4v1.2a.4.4 0 01-.4.4H2.4a.4.4 0 01-.4-.4V5.4z" fill="currentColor"/></svg></span></span>待办数</label>
+          <label class="pop-item"><span class="cbx-wrap"><input class="cbx-input" type="checkbox" data-col="when" checked><span class="cbx"><svg class="ck" viewBox="0 0 12 12" fill="none"><path d="M9.589 2.903l.808.809a.35.35 0 010 .495L5.18 9.425a.35.35 0 01-.495 0l-2.981-2.98a.35.35 0 010-.496l.808-.808a.35.35 0 01.495 0l1.925 1.925 4.163-4.163a.35.35 0 01.495 0z" fill="currentColor"/></svg><svg class="ind" viewBox="0 0 12 12" fill="none"><path d="M2 5.4c0-.22.18-.4.4-.4h7.2c.22 0 .4.18.4.4v1.2a.4.4 0 01-.4.4H2.4a.4.4 0 01-.4-.4V5.4z" fill="currentColor"/></svg></span></span>最近活动</label>
+          <div class="pop-sep"></div>
+          <div class="pop-h">缩略图</div>
+          <div class="pop-row">
+            <button class="ppill is-on" type="button" data-cover="on">显示</button>
+            <button class="ppill" type="button" data-cover="off">隐藏</button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 卡片视图 -->
+    <div class="grid">
+      <article class="card is-running" tabindex="0" data-pid="p1">
+        <label class="cbx-wrap card-cbx"><input class="cbx-input cardSel" data-pid="p1" type="checkbox" aria-label="选择项目"><span class="cbx"><svg class="ck" viewBox="0 0 12 12" fill="none"><path d="M9.589 2.903l.808.809a.35.35 0 010 .495L5.18 9.425a.35.35 0 01-.495 0l-2.981-2.98a.35.35 0 010-.496l.808-.808a.35.35 0 01.495 0l1.925 1.925 4.163-4.163a.35.35 0 01.495 0z" fill="currentColor"/></svg><svg class="ind" viewBox="0 0 12 12" fill="none"><path d="M2 5.4c0-.22.18-.4.4-.4h7.2c.22 0 .4.18.4.4v1.2a.4.4 0 01-.4.4H2.4a.4.4 0 01-.4-.4V5.4z" fill="currentColor"/></svg></span></label>
+        <div class="thumb"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round" aria-hidden="true"><path d="M3.5 7.2c0-1.1.9-2 2-2h3.1c.53 0 1.04.21 1.41.59l.9.9c.19.19.44.29.71.29h6.9c1.1 0 2 .9 2 2v8.4c0 1.1-.9 2-2 2h-13c-1.1 0-2-.9-2-2V7.2Z"/></svg></div>
+        <div class="card-main">
+          <div class="card-title">
+            <span class="n">dsh-overview</span>
+            <span class="state"><span class="dot-run"></span>运行中</span><button class="more" type="button" aria-label="更多">⋯</button>
+          </div>
+          <div class="card-path" title="D:\Projects\dsh-overview">D:\Projects\dsh-overview</div>
+          <div class="card-desc">4 会话 · 3 待办 · 12 分钟前</div>
+        </div>
+      </article>
+      <article class="card" tabindex="0" data-pid="p2">
+        <label class="cbx-wrap card-cbx"><input class="cbx-input cardSel" data-pid="p2" type="checkbox" aria-label="选择项目"><span class="cbx"><svg class="ck" viewBox="0 0 12 12" fill="none"><path d="M9.589 2.903l.808.809a.35.35 0 010 .495L5.18 9.425a.35.35 0 01-.495 0l-2.981-2.98a.35.35 0 010-.496l.808-.808a.35.35 0 01.495 0l1.925 1.925 4.163-4.163a.35.35 0 01.495 0z" fill="currentColor"/></svg><svg class="ind" viewBox="0 0 12 12" fill="none"><path d="M2 5.4c0-.22.18-.4.4-.4h7.2c.22 0 .4.18.4.4v1.2a.4.4 0 01-.4.4H2.4a.4.4 0 01-.4-.4V5.4z" fill="currentColor"/></svg></span></label>
+        <div class="thumb"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round" aria-hidden="true"><path d="M3.5 7.2c0-1.1.9-2 2-2h3.1c.53 0 1.04.21 1.41.59l.9.9c.19.19.44.29.71.29h6.9c1.1 0 2 .9 2 2v8.4c0 1.1-.9 2-2 2h-13c-1.1 0-2-.9-2-2V7.2Z"/></svg></div>
+        <div class="card-main">
+          <div class="card-title">
+            <span class="n">.dsh</span>
+            <button class="more" type="button" aria-label="更多">⋯</button>
+          </div>
+          <div class="card-path" title="C:\Users\Administrator\.dsh">C:\Users\Administrator\.dsh</div>
+          <div class="card-desc">9 会话 · 0 待办 · 3 小时前</div>
+        </div>
+      </article>
+      <article class="card" tabindex="0" data-pid="p3">
+        <label class="cbx-wrap card-cbx"><input class="cbx-input cardSel" data-pid="p3" type="checkbox" aria-label="选择项目"><span class="cbx"><svg class="ck" viewBox="0 0 12 12" fill="none"><path d="M9.589 2.903l.808.809a.35.35 0 010 .495L5.18 9.425a.35.35 0 01-.495 0l-2.981-2.98a.35.35 0 010-.496l.808-.808a.35.35 0 01.495 0l1.925 1.925 4.163-4.163a.35.35 0 01.495 0z" fill="currentColor"/></svg><svg class="ind" viewBox="0 0 12 12" fill="none"><path d="M2 5.4c0-.22.18-.4.4-.4h7.2c.22 0 .4.18.4.4v1.2a.4.4 0 01-.4.4H2.4a.4.4 0 01-.4-.4V5.4z" fill="currentColor"/></svg></span></label>
+        <div class="thumb"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round" aria-hidden="true"><path d="M3.5 7.2c0-1.1.9-2 2-2h3.1c.53 0 1.04.21 1.41.59l.9.9c.19.19.44.29.71.29h6.9c1.1 0 2 .9 2 2v8.4c0 1.1-.9 2-2 2h-13c-1.1 0-2-.9-2-2V7.2Z"/></svg></div>
+        <div class="card-main">
+          <div class="card-title">
+            <span class="n">default-workspace</span>
+            <button class="more" type="button" aria-label="更多">⋯</button>
+          </div>
+          <div class="card-path" title="C:\Users\Administrator\.dsh\default-workspace">C:\Users\Administrator\.dsh\default-workspace</div>
+          <div class="card-desc">9 会话 · 6 待办 · 26 小时前</div>
+        </div>
+      </article>
+      <article class="card" tabindex="0" data-pid="p4">
+        <label class="cbx-wrap card-cbx"><input class="cbx-input cardSel" data-pid="p4" type="checkbox" aria-label="选择项目"><span class="cbx"><svg class="ck" viewBox="0 0 12 12" fill="none"><path d="M9.589 2.903l.808.809a.35.35 0 010 .495L5.18 9.425a.35.35 0 01-.495 0l-2.981-2.98a.35.35 0 010-.496l.808-.808a.35.35 0 01.495 0l1.925 1.925 4.163-4.163a.35.35 0 01.495 0z" fill="currentColor"/></svg><svg class="ind" viewBox="0 0 12 12" fill="none"><path d="M2 5.4c0-.22.18-.4.4-.4h7.2c.22 0 .4.18.4.4v1.2a.4.4 0 01-.4.4H2.4a.4.4 0 01-.4-.4V5.4z" fill="currentColor"/></svg></span></label>
+        <div class="thumb"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round" aria-hidden="true"><path d="M3.5 7.2c0-1.1.9-2 2-2h3.1c.53 0 1.04.21 1.41.59l.9.9c.19.19.44.29.71.29h6.9c1.1 0 2 .9 2 2v8.4c0 1.1-.9 2-2 2h-13c-1.1 0-2-.9-2-2V7.2Z"/></svg></div>
+        <div class="card-main">
+          <div class="card-title">
+            <span class="n">OneNote</span>
+            <button class="more" type="button" aria-label="更多">⋯</button>
+          </div>
+          <div class="card-path" title="D:\Projects\OneNote">D:\Projects\OneNote</div>
+          <div class="card-desc">5 会话 · 1 待办 · 20 小时前</div>
+        </div>
+      </article>
+      <article class="card" tabindex="0" data-pid="p5">
+        <label class="cbx-wrap card-cbx"><input class="cbx-input cardSel" data-pid="p5" type="checkbox" aria-label="选择项目"><span class="cbx"><svg class="ck" viewBox="0 0 12 12" fill="none"><path d="M9.589 2.903l.808.809a.35.35 0 010 .495L5.18 9.425a.35.35 0 01-.495 0l-2.981-2.98a.35.35 0 010-.496l.808-.808a.35.35 0 01.495 0l1.925 1.925 4.163-4.163a.35.35 0 01.495 0z" fill="currentColor"/></svg><svg class="ind" viewBox="0 0 12 12" fill="none"><path d="M2 5.4c0-.22.18-.4.4-.4h7.2c.22 0 .4.18.4.4v1.2a.4.4 0 01-.4.4H2.4a.4.4 0 01-.4-.4V5.4z" fill="currentColor"/></svg></span></label>
+        <div class="thumb"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round" aria-hidden="true"><path d="M3.5 7.2c0-1.1.9-2 2-2h3.1c.53 0 1.04.21 1.41.59l.9.9c.19.19.44.29.71.29h6.9c1.1 0 2 .9 2 2v8.4c0 1.1-.9 2-2 2h-13c-1.1 0-2-.9-2-2V7.2Z"/></svg></div>
+        <div class="card-main">
+          <div class="card-title">
+            <span class="n">dsh-onenpc</span>
+            <button class="more" type="button" aria-label="更多">⋯</button>
+          </div>
+          <div class="card-path" title="D:\Projects\dsh-onenpc">D:\Projects\dsh-onenpc</div>
+          <div class="card-desc">2 会话 · 2 待办 · 1 小时前</div>
+        </div>
+      </article>
+      <article class="card" tabindex="0" data-pid="p6">
+        <label class="cbx-wrap card-cbx"><input class="cbx-input cardSel" data-pid="p6" type="checkbox" aria-label="选择项目"><span class="cbx"><svg class="ck" viewBox="0 0 12 12" fill="none"><path d="M9.589 2.903l.808.809a.35.35 0 010 .495L5.18 9.425a.35.35 0 01-.495 0l-2.981-2.98a.35.35 0 010-.496l.808-.808a.35.35 0 01.495 0l1.925 1.925 4.163-4.163a.35.35 0 01.495 0z" fill="currentColor"/></svg><svg class="ind" viewBox="0 0 12 12" fill="none"><path d="M2 5.4c0-.22.18-.4.4-.4h7.2c.22 0 .4.18.4.4v1.2a.4.4 0 01-.4.4H2.4a.4.4 0 01-.4-.4V5.4z" fill="currentColor"/></svg></span></label>
+        <div class="thumb"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round" aria-hidden="true"><path d="M3.5 7.2c0-1.1.9-2 2-2h3.1c.53 0 1.04.21 1.41.59l.9.9c.19.19.44.29.71.29h6.9c1.1 0 2 .9 2 2v8.4c0 1.1-.9 2-2 2h-13c-1.1 0-2-.9-2-2V7.2Z"/></svg></div>
+        <div class="card-main">
+          <div class="card-title">
+            <span class="n">hexo-butterfly-next</span>
+            <button class="more" type="button" aria-label="更多">⋯</button>
+          </div>
+          <div class="card-path" title="D:\Projects\hexo-butterfly-next">D:\Projects\hexo-butterfly-next</div>
+          <div class="card-desc">3 会话 · 0 待办 · 5 天前</div>
+        </div>
+      </article>
+      <article class="card" tabindex="0" data-pid="p7">
+        <label class="cbx-wrap card-cbx"><input class="cbx-input cardSel" data-pid="p7" type="checkbox" aria-label="选择项目"><span class="cbx"><svg class="ck" viewBox="0 0 12 12" fill="none"><path d="M9.589 2.903l.808.809a.35.35 0 010 .495L5.18 9.425a.35.35 0 01-.495 0l-2.981-2.98a.35.35 0 010-.496l.808-.808a.35.35 0 01.495 0l1.925 1.925 4.163-4.163a.35.35 0 01.495 0z" fill="currentColor"/></svg><svg class="ind" viewBox="0 0 12 12" fill="none"><path d="M2 5.4c0-.22.18-.4.4-.4h7.2c.22 0 .4.18.4.4v1.2a.4.4 0 01-.4.4H2.4a.4.4 0 01-.4-.4V5.4z" fill="currentColor"/></svg></span></label>
+        <div class="thumb"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round" aria-hidden="true"><path d="M3.5 7.2c0-1.1.9-2 2-2h3.1c.53 0 1.04.21 1.41.59l.9.9c.19.19.44.29.71.29h6.9c1.1 0 2 .9 2 2v8.4c0 1.1-.9 2-2 2h-13c-1.1 0-2-.9-2-2V7.2Z"/></svg></div>
+        <div class="card-main">
+          <div class="card-title">
+            <span class="n">dsh-fairy</span>
+            <button class="more" type="button" aria-label="更多">⋯</button>
+          </div>
+          <div class="card-path" title="D:\Projects\dsh-fairy">D:\Projects\dsh-fairy</div>
+          <div class="card-desc">2 会话 · 0 待办 · 6 天前</div>
+        </div>
+      </article>
+      <article class="card" tabindex="0" data-pid="p8">
+        <label class="cbx-wrap card-cbx"><input class="cbx-input cardSel" data-pid="p8" type="checkbox" aria-label="选择项目"><span class="cbx"><svg class="ck" viewBox="0 0 12 12" fill="none"><path d="M9.589 2.903l.808.809a.35.35 0 010 .495L5.18 9.425a.35.35 0 01-.495 0l-2.981-2.98a.35.35 0 010-.496l.808-.808a.35.35 0 01.495 0l1.925 1.925 4.163-4.163a.35.35 0 01.495 0z" fill="currentColor"/></svg><svg class="ind" viewBox="0 0 12 12" fill="none"><path d="M2 5.4c0-.22.18-.4.4-.4h7.2c.22 0 .4.18.4.4v1.2a.4.4 0 01-.4.4H2.4a.4.4 0 01-.4-.4V5.4z" fill="currentColor"/></svg></span></label>
+        <div class="thumb"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round" aria-hidden="true"><path d="M3.5 7.2c0-1.1.9-2 2-2h3.1c.53 0 1.04.21 1.41.59l.9.9c.19.19.44.29.71.29h6.9c1.1 0 2 .9 2 2v8.4c0 1.1-.9 2-2 2h-13c-1.1 0-2-.9-2-2V7.2Z"/></svg></div>
+        <div class="card-main">
+          <div class="card-title">
+            <span class="n">rea-gulugulu</span>
+            <button class="more" type="button" aria-label="更多">⋯</button>
+          </div>
+          <div class="card-path" title="D:\Projects\rea-gulugulu">D:\Projects\rea-gulugulu</div>
+          <div class="card-desc">2 会话 · 0 待办 · 9 天前</div>
+        </div>
+      </article>
+      <article class="card" tabindex="0" data-pid="p9">
+        <label class="cbx-wrap card-cbx"><input class="cbx-input cardSel" data-pid="p9" type="checkbox" aria-label="选择项目"><span class="cbx"><svg class="ck" viewBox="0 0 12 12" fill="none"><path d="M9.589 2.903l.808.809a.35.35 0 010 .495L5.18 9.425a.35.35 0 01-.495 0l-2.981-2.98a.35.35 0 010-.496l.808-.808a.35.35 0 01.495 0l1.925 1.925 4.163-4.163a.35.35 0 01.495 0z" fill="currentColor"/></svg><svg class="ind" viewBox="0 0 12 12" fill="none"><path d="M2 5.4c0-.22.18-.4.4-.4h7.2c.22 0 .4.18.4.4v1.2a.4.4 0 01-.4.4H2.4a.4.4 0 01-.4-.4V5.4z" fill="currentColor"/></svg></span></label>
+        <div class="thumb"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.2" stroke-linejoin="round" aria-hidden="true"><path d="M3.5 7.2c0-1.1.9-2 2-2h3.1c.53 0 1.04.21 1.41.59l.9.9c.19.19.44.29.71.29h6.9c1.1 0 2 .9 2 2v8.4c0 1.1-.9 2-2 2h-13c-1.1 0-2-.9-2-2V7.2Z"/></svg></div>
+        <div class="card-main">
+          <div class="card-title">
+            <span class="n">Fairy-DSH</span>
+            <button class="more" type="button" aria-label="更多">⋯</button>
+          </div>
+          <div class="card-path" title="D:\Projects\Fairy-DSH">D:\Projects\Fairy-DSH</div>
+          <div class="card-desc">1 会话 · 0 待办 · 12 天前</div>
+        </div>
+      </article>
+    </div>
+
+    <!-- 列表视图 -->
+    <div class="listview">
+      <div class="lhead" role="row">
+        <div class="lc lc-cb"><label class="cbx-wrap"><input class="cbx-input" type="checkbox" id="selAll" aria-label="全选"><span class="cbx"><svg class="ck" viewBox="0 0 12 12" fill="none"><path d="M9.589 2.903l.808.809a.35.35 0 010 .495L5.18 9.425a.35.35 0 01-.495 0l-2.981-2.98a.35.35 0 010-.496l.808-.808a.35.35 0 01.495 0l1.925 1.925 4.163-4.163a.35.35 0 01.495 0z" fill="currentColor"/></svg><svg class="ind" viewBox="0 0 12 12" fill="none"><path d="M2 5.4c0-.22.18-.4.4-.4h7.2c.22 0 .4.18.4.4v1.2a.4.4 0 01-.4.4H2.4a.4.4 0 01-.4-.4V5.4z" fill="currentColor"/></svg></span></label></div>
+        <div class="lc lc-name">项目名称<span class="resizer"></span></div>
+        <div class="lc lc-path" data-field="path">路径<span class="resizer"></span></div>
+        <div class="lc lc-sessions" data-field="sessions">会话<span class="resizer"></span></div>
+        <div class="lc lc-todos" data-field="todos">待办<span class="resizer"></span></div>
+        <div class="lc lc-when" data-field="when">最近活动<span class="resizer"></span></div>
+        <div class="lc lc-act"></div>
+      </div>
+      <div class="lrow" role="row">
+        <div class="lc lc-cb"><label class="cbx-wrap"><input class="cbx-input rowSel" data-pid="p1" type="checkbox" aria-label="选择 dsh-overview"><span class="cbx"><svg class="ck" viewBox="0 0 12 12" fill="none"><path d="M9.589 2.903l.808.809a.35.35 0 010 .495L5.18 9.425a.35.35 0 01-.495 0l-2.981-2.98a.35.35 0 010-.496l.808-.808a.35.35 0 01.495 0l1.925 1.925 4.163-4.163a.35.35 0 01.495 0z" fill="currentColor"/></svg><svg class="ind" viewBox="0 0 12 12" fill="none"><path d="M2 5.4c0-.22.18-.4.4-.4h7.2c.22 0 .4.18.4.4v1.2a.4.4 0 01-.4.4H2.4a.4.4 0 01-.4-.4V5.4z" fill="currentColor"/></svg></span></label></div>
+        <div class="lc lc-name"><span class="picon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" aria-hidden="true"><path d="M3.5 7.2c0-1.1.9-2 2-2h3.1c.53 0 1.04.21 1.41.59l.9.9c.19.19.44.29.71.29h6.9c1.1 0 2 .9 2 2v8.4c0 1.1-.9 2-2 2h-13c-1.1 0-2-.9-2-2V7.2Z"/></svg></span><span class="n">dsh-overview</span><span class="dot-run"></span></div>
+        <div class="lc lc-path" data-field="path"><span class="mono" title=""></span></div>
+        <div class="lc lc-sessions" data-field="sessions"><span class="v"></span></div>
+        <div class="lc lc-todos" data-field="todos"><span class="v hot"></span></div>
+        <div class="lc lc-when" data-field="when"><span class="v"></span></div>
+        <div class="lc lc-act"><button class="m3" type="button" aria-label="更多"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5.5 11.75a1.75 1.75 0 1 1-3.5 0 1.75 1.75 0 0 1 3.5 0Zm8.225 0a1.75 1.75 0 1 1-3.5 0 1.75 1.75 0 0 1 3.5 0Zm8.275 0a1.75 1.75 0 1 1-3.5 0 1.75 1.75 0 0 1 3.5 0Z" fill="currentColor"/></svg></button></div>
+      </div>
+      <div class="lrow" role="row">
+        <div class="lc lc-cb"><label class="cbx-wrap"><input class="cbx-input rowSel" data-pid="p2" type="checkbox" aria-label="选择 .dsh"><span class="cbx"><svg class="ck" viewBox="0 0 12 12" fill="none"><path d="M9.589 2.903l.808.809a.35.35 0 010 .495L5.18 9.425a.35.35 0 01-.495 0l-2.981-2.98a.35.35 0 010-.496l.808-.808a.35.35 0 01.495 0l1.925 1.925 4.163-4.163a.35.35 0 01.495 0z" fill="currentColor"/></svg><svg class="ind" viewBox="0 0 12 12" fill="none"><path d="M2 5.4c0-.22.18-.4.4-.4h7.2c.22 0 .4.18.4.4v1.2a.4.4 0 01-.4.4H2.4a.4.4 0 01-.4-.4V5.4z" fill="currentColor"/></svg></span></label></div>
+        <div class="lc lc-name"><span class="picon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" aria-hidden="true"><path d="M3.5 7.2c0-1.1.9-2 2-2h3.1c.53 0 1.04.21 1.41.59l.9.9c.19.19.44.29.71.29h6.9c1.1 0 2 .9 2 2v8.4c0 1.1-.9 2-2 2h-13c-1.1 0-2-.9-2-2V7.2Z"/></svg></span><span class="n">.dsh</span></div>
+        <div class="lc lc-path" data-field="path"><span class="mono" title=""></span></div>
+        <div class="lc lc-sessions" data-field="sessions"><span class="v"></span></div>
+        <div class="lc lc-todos" data-field="todos"><span class="v"></span></div>
+        <div class="lc lc-when" data-field="when"><span class="v"></span></div>
+        <div class="lc lc-act"><button class="m3" type="button" aria-label="更多"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5.5 11.75a1.75 1.75 0 1 1-3.5 0 1.75 1.75 0 0 1 3.5 0Zm8.225 0a1.75 1.75 0 1 1-3.5 0 1.75 1.75 0 0 1 3.5 0Zm8.275 0a1.75 1.75 0 1 1-3.5 0 1.75 1.75 0 0 1 3.5 0Z" fill="currentColor"/></svg></button></div>
+      </div>
+      <div class="lrow" role="row">
+        <div class="lc lc-cb"><label class="cbx-wrap"><input class="cbx-input rowSel" data-pid="p3" type="checkbox" aria-label="选择 default-workspace"><span class="cbx"><svg class="ck" viewBox="0 0 12 12" fill="none"><path d="M9.589 2.903l.808.809a.35.35 0 010 .495L5.18 9.425a.35.35 0 01-.495 0l-2.981-2.98a.35.35 0 010-.496l.808-.808a.35.35 0 01.495 0l1.925 1.925 4.163-4.163a.35.35 0 01.495 0z" fill="currentColor"/></svg><svg class="ind" viewBox="0 0 12 12" fill="none"><path d="M2 5.4c0-.22.18-.4.4-.4h7.2c.22 0 .4.18.4.4v1.2a.4.4 0 01-.4.4H2.4a.4.4 0 01-.4-.4V5.4z" fill="currentColor"/></svg></span></label></div>
+        <div class="lc lc-name"><span class="picon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" aria-hidden="true"><path d="M3.5 7.2c0-1.1.9-2 2-2h3.1c.53 0 1.04.21 1.41.59l.9.9c.19.19.44.29.71.29h6.9c1.1 0 2 .9 2 2v8.4c0 1.1-.9 2-2 2h-13c-1.1 0-2-.9-2-2V7.2Z"/></svg></span><span class="n">default-workspace</span></div>
+        <div class="lc lc-path" data-field="path"><span class="mono" title=""></span></div>
+        <div class="lc lc-sessions" data-field="sessions"><span class="v"></span></div>
+        <div class="lc lc-todos" data-field="todos"><span class="v hot"></span></div>
+        <div class="lc lc-when" data-field="when"><span class="v"></span></div>
+        <div class="lc lc-act"><button class="m3" type="button" aria-label="更多"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5.5 11.75a1.75 1.75 0 1 1-3.5 0 1.75 1.75 0 0 1 3.5 0Zm8.225 0a1.75 1.75 0 1 1-3.5 0 1.75 1.75 0 0 1 3.5 0Zm8.275 0a1.75 1.75 0 1 1-3.5 0 1.75 1.75 0 0 1 3.5 0Z" fill="currentColor"/></svg></button></div>
+      </div>
+      <div class="lrow" role="row">
+        <div class="lc lc-cb"><label class="cbx-wrap"><input class="cbx-input rowSel" data-pid="p4" type="checkbox" aria-label="选择 OneNote"><span class="cbx"><svg class="ck" viewBox="0 0 12 12" fill="none"><path d="M9.589 2.903l.808.809a.35.35 0 010 .495L5.18 9.425a.35.35 0 01-.495 0l-2.981-2.98a.35.35 0 010-.496l.808-.808a.35.35 0 01.495 0l1.925 1.925 4.163-4.163a.35.35 0 01.495 0z" fill="currentColor"/></svg><svg class="ind" viewBox="0 0 12 12" fill="none"><path d="M2 5.4c0-.22.18-.4.4-.4h7.2c.22 0 .4.18.4.4v1.2a.4.4 0 01-.4.4H2.4a.4.4 0 01-.4-.4V5.4z" fill="currentColor"/></svg></span></label></div>
+        <div class="lc lc-name"><span class="picon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" aria-hidden="true"><path d="M3.5 7.2c0-1.1.9-2 2-2h3.1c.53 0 1.04.21 1.41.59l.9.9c.19.19.44.29.71.29h6.9c1.1 0 2 .9 2 2v8.4c0 1.1-.9 2-2 2h-13c-1.1 0-2-.9-2-2V7.2Z"/></svg></span><span class="n">OneNote</span></div>
+        <div class="lc lc-path" data-field="path"><span class="mono" title=""></span></div>
+        <div class="lc lc-sessions" data-field="sessions"><span class="v"></span></div>
+        <div class="lc lc-todos" data-field="todos"><span class="v hot"></span></div>
+        <div class="lc lc-when" data-field="when"><span class="v"></span></div>
+        <div class="lc lc-act"><button class="m3" type="button" aria-label="更多"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5.5 11.75a1.75 1.75 0 1 1-3.5 0 1.75 1.75 0 0 1 3.5 0Zm8.225 0a1.75 1.75 0 1 1-3.5 0 1.75 1.75 0 0 1 3.5 0Zm8.275 0a1.75 1.75 0 1 1-3.5 0 1.75 1.75 0 0 1 3.5 0Z" fill="currentColor"/></svg></button></div>
+      </div>
+      <div class="lrow" role="row">
+        <div class="lc lc-cb"><label class="cbx-wrap"><input class="cbx-input rowSel" data-pid="p5" type="checkbox" aria-label="选择 dsh-onenpc"><span class="cbx"><svg class="ck" viewBox="0 0 12 12" fill="none"><path d="M9.589 2.903l.808.809a.35.35 0 010 .495L5.18 9.425a.35.35 0 01-.495 0l-2.981-2.98a.35.35 0 010-.496l.808-.808a.35.35 0 01.495 0l1.925 1.925 4.163-4.163a.35.35 0 01.495 0z" fill="currentColor"/></svg><svg class="ind" viewBox="0 0 12 12" fill="none"><path d="M2 5.4c0-.22.18-.4.4-.4h7.2c.22 0 .4.18.4.4v1.2a.4.4 0 01-.4.4H2.4a.4.4 0 01-.4-.4V5.4z" fill="currentColor"/></svg></span></label></div>
+        <div class="lc lc-name"><span class="picon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" aria-hidden="true"><path d="M3.5 7.2c0-1.1.9-2 2-2h3.1c.53 0 1.04.21 1.41.59l.9.9c.19.19.44.29.71.29h6.9c1.1 0 2 .9 2 2v8.4c0 1.1-.9 2-2 2h-13c-1.1 0-2-.9-2-2V7.2Z"/></svg></span><span class="n">dsh-onenpc</span></div>
+        <div class="lc lc-path" data-field="path"><span class="mono" title=""></span></div>
+        <div class="lc lc-sessions" data-field="sessions"><span class="v"></span></div>
+        <div class="lc lc-todos" data-field="todos"><span class="v hot"></span></div>
+        <div class="lc lc-when" data-field="when"><span class="v"></span></div>
+        <div class="lc lc-act"><button class="m3" type="button" aria-label="更多"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5.5 11.75a1.75 1.75 0 1 1-3.5 0 1.75 1.75 0 0 1 3.5 0Zm8.225 0a1.75 1.75 0 1 1-3.5 0 1.75 1.75 0 0 1 3.5 0Zm8.275 0a1.75 1.75 0 1 1-3.5 0 1.75 1.75 0 0 1 3.5 0Z" fill="currentColor"/></svg></button></div>
+      </div>
+      <div class="lrow" role="row">
+        <div class="lc lc-cb"><label class="cbx-wrap"><input class="cbx-input rowSel" data-pid="p6" type="checkbox" aria-label="选择 hexo-butterfly-next"><span class="cbx"><svg class="ck" viewBox="0 0 12 12" fill="none"><path d="M9.589 2.903l.808.809a.35.35 0 010 .495L5.18 9.425a.35.35 0 01-.495 0l-2.981-2.98a.35.35 0 010-.496l.808-.808a.35.35 0 01.495 0l1.925 1.925 4.163-4.163a.35.35 0 01.495 0z" fill="currentColor"/></svg><svg class="ind" viewBox="0 0 12 12" fill="none"><path d="M2 5.4c0-.22.18-.4.4-.4h7.2c.22 0 .4.18.4.4v1.2a.4.4 0 01-.4.4H2.4a.4.4 0 01-.4-.4V5.4z" fill="currentColor"/></svg></span></label></div>
+        <div class="lc lc-name"><span class="picon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" aria-hidden="true"><path d="M3.5 7.2c0-1.1.9-2 2-2h3.1c.53 0 1.04.21 1.41.59l.9.9c.19.19.44.29.71.29h6.9c1.1 0 2 .9 2 2v8.4c0 1.1-.9 2-2 2h-13c-1.1 0-2-.9-2-2V7.2Z"/></svg></span><span class="n">hexo-butterfly-next</span></div>
+        <div class="lc lc-path" data-field="path"><span class="mono" title=""></span></div>
+        <div class="lc lc-sessions" data-field="sessions"><span class="v"></span></div>
+        <div class="lc lc-todos" data-field="todos"><span class="v"></span></div>
+        <div class="lc lc-when" data-field="when"><span class="v"></span></div>
+        <div class="lc lc-act"><button class="m3" type="button" aria-label="更多"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5.5 11.75a1.75 1.75 0 1 1-3.5 0 1.75 1.75 0 0 1 3.5 0Zm8.225 0a1.75 1.75 0 1 1-3.5 0 1.75 1.75 0 0 1 3.5 0Zm8.275 0a1.75 1.75 0 1 1-3.5 0 1.75 1.75 0 0 1 3.5 0Z" fill="currentColor"/></svg></button></div>
+      </div>
+      <div class="lrow" role="row">
+        <div class="lc lc-cb"><label class="cbx-wrap"><input class="cbx-input rowSel" data-pid="p7" type="checkbox" aria-label="选择 dsh-fairy"><span class="cbx"><svg class="ck" viewBox="0 0 12 12" fill="none"><path d="M9.589 2.903l.808.809a.35.35 0 010 .495L5.18 9.425a.35.35 0 01-.495 0l-2.981-2.98a.35.35 0 010-.496l.808-.808a.35.35 0 01.495 0l1.925 1.925 4.163-4.163a.35.35 0 01.495 0z" fill="currentColor"/></svg><svg class="ind" viewBox="0 0 12 12" fill="none"><path d="M2 5.4c0-.22.18-.4.4-.4h7.2c.22 0 .4.18.4.4v1.2a.4.4 0 01-.4.4H2.4a.4.4 0 01-.4-.4V5.4z" fill="currentColor"/></svg></span></label></div>
+        <div class="lc lc-name"><span class="picon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" aria-hidden="true"><path d="M3.5 7.2c0-1.1.9-2 2-2h3.1c.53 0 1.04.21 1.41.59l.9.9c.19.19.44.29.71.29h6.9c1.1 0 2 .9 2 2v8.4c0 1.1-.9 2-2 2h-13c-1.1 0-2-.9-2-2V7.2Z"/></svg></span><span class="n">dsh-fairy</span></div>
+        <div class="lc lc-path" data-field="path"><span class="mono" title=""></span></div>
+        <div class="lc lc-sessions" data-field="sessions"><span class="v"></span></div>
+        <div class="lc lc-todos" data-field="todos"><span class="v"></span></div>
+        <div class="lc lc-when" data-field="when"><span class="v"></span></div>
+        <div class="lc lc-act"><button class="m3" type="button" aria-label="更多"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5.5 11.75a1.75 1.75 0 1 1-3.5 0 1.75 1.75 0 0 1 3.5 0Zm8.225 0a1.75 1.75 0 1 1-3.5 0 1.75 1.75 0 0 1 3.5 0Zm8.275 0a1.75 1.75 0 1 1-3.5 0 1.75 1.75 0 0 1 3.5 0Z" fill="currentColor"/></svg></button></div>
+      </div>
+      <div class="lrow" role="row">
+        <div class="lc lc-cb"><label class="cbx-wrap"><input class="cbx-input rowSel" data-pid="p8" type="checkbox" aria-label="选择 rea-gulugulu"><span class="cbx"><svg class="ck" viewBox="0 0 12 12" fill="none"><path d="M9.589 2.903l.808.809a.35.35 0 010 .495L5.18 9.425a.35.35 0 01-.495 0l-2.981-2.98a.35.35 0 010-.496l.808-.808a.35.35 0 01.495 0l1.925 1.925 4.163-4.163a.35.35 0 01.495 0z" fill="currentColor"/></svg><svg class="ind" viewBox="0 0 12 12" fill="none"><path d="M2 5.4c0-.22.18-.4.4-.4h7.2c.22 0 .4.18.4.4v1.2a.4.4 0 01-.4.4H2.4a.4.4 0 01-.4-.4V5.4z" fill="currentColor"/></svg></span></label></div>
+        <div class="lc lc-name"><span class="picon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" aria-hidden="true"><path d="M3.5 7.2c0-1.1.9-2 2-2h3.1c.53 0 1.04.21 1.41.59l.9.9c.19.19.44.29.71.29h6.9c1.1 0 2 .9 2 2v8.4c0 1.1-.9 2-2 2h-13c-1.1 0-2-.9-2-2V7.2Z"/></svg></span><span class="n">rea-gulugulu</span></div>
+        <div class="lc lc-path" data-field="path"><span class="mono" title=""></span></div>
+        <div class="lc lc-sessions" data-field="sessions"><span class="v"></span></div>
+        <div class="lc lc-todos" data-field="todos"><span class="v"></span></div>
+        <div class="lc lc-when" data-field="when"><span class="v"></span></div>
+        <div class="lc lc-act"><button class="m3" type="button" aria-label="更多"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5.5 11.75a1.75 1.75 0 1 1-3.5 0 1.75 1.75 0 0 1 3.5 0Zm8.225 0a1.75 1.75 0 1 1-3.5 0 1.75 1.75 0 0 1 3.5 0Zm8.275 0a1.75 1.75 0 1 1-3.5 0 1.75 1.75 0 0 1 3.5 0Z" fill="currentColor"/></svg></button></div>
+      </div>
+      <div class="lrow" role="row">
+        <div class="lc lc-cb"><label class="cbx-wrap"><input class="cbx-input rowSel" data-pid="p9" type="checkbox" aria-label="选择 Fairy-DSH"><span class="cbx"><svg class="ck" viewBox="0 0 12 12" fill="none"><path d="M9.589 2.903l.808.809a.35.35 0 010 .495L5.18 9.425a.35.35 0 01-.495 0l-2.981-2.98a.35.35 0 010-.496l.808-.808a.35.35 0 01.495 0l1.925 1.925 4.163-4.163a.35.35 0 01.495 0z" fill="currentColor"/></svg><svg class="ind" viewBox="0 0 12 12" fill="none"><path d="M2 5.4c0-.22.18-.4.4-.4h7.2c.22 0 .4.18.4.4v1.2a.4.4 0 01-.4.4H2.4a.4.4 0 01-.4-.4V5.4z" fill="currentColor"/></svg></span></label></div>
+        <div class="lc lc-name"><span class="picon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linejoin="round" aria-hidden="true"><path d="M3.5 7.2c0-1.1.9-2 2-2h3.1c.53 0 1.04.21 1.41.59l.9.9c.19.19.44.29.71.29h6.9c1.1 0 2 .9 2 2v8.4c0 1.1-.9 2-2 2h-13c-1.1 0-2-.9-2-2V7.2Z"/></svg></span><span class="n">Fairy-DSH</span></div>
+        <div class="lc lc-path" data-field="path"><span class="mono" title=""></span></div>
+        <div class="lc lc-sessions" data-field="sessions"><span class="v"></span></div>
+        <div class="lc lc-todos" data-field="todos"><span class="v"></span></div>
+        <div class="lc lc-when" data-field="when"><span class="v"></span></div>
+        <div class="lc lc-act"><button class="m3" type="button" aria-label="更多"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5.5 11.75a1.75 1.75 0 1 1-3.5 0 1.75 1.75 0 0 1 3.5 0Zm8.225 0a1.75 1.75 0 1 1-3.5 0 1.75 1.75 0 0 1 3.5 0Zm8.275 0a1.75 1.75 0 1 1-3.5 0 1.75 1.75 0 0 1 3.5 0Z" fill="currentColor"/></svg></button></div>
+      </div>
+      <div class="lnew"><i>＋</i>新增记录</div>
+    </div>
+
+  </section>
+
+  <!-- ========== 控件规格（仅结构标注模式显示） ========== -->
+  <section class="controls" data-label="⑤ 控件 · 勾选框（对齐 Base）">
+    <div class="sec-head"><h2>勾选框</h2><span class="hint">14×14 · 圆角 3 · 1px 浅描边 · 勾选填主色 · 无灰底热区</span></div>
+
+    <div class="ctrl-grid">
+      <span class="ctrl"><label class="cbx-wrap"><input class="cbx-input" type="checkbox"><span class="cbx"><svg class="ck" viewBox="0 0 12 12" fill="none"><path d="M9.589 2.903l.808.809a.35.35 0 010 .495L5.18 9.425a.35.35 0 01-.495 0l-2.981-2.98a.35.35 0 010-.496l.808-.808a.35.35 0 01.495 0l1.925 1.925 4.163-4.163a.35.35 0 01.495 0z" fill="currentColor"/></svg><svg class="ind" viewBox="0 0 12 12" fill="none"><path d="M2 5.4c0-.22.18-.4.4-.4h7.2c.22 0 .4.18.4.4v1.2a.4.4 0 01-.4.4H2.4a.4.4 0 01-.4-.4V5.4z" fill="currentColor"/></svg></span></label>未选</span>
+      <span class="ctrl"><label class="cbx-wrap fake-hover"><input class="cbx-input" type="checkbox"><span class="cbx"><svg class="ck" viewBox="0 0 12 12" fill="none"><path d="M9.589 2.903l.808.809a.35.35 0 010 .495L5.18 9.425a.35.35 0 01-.495 0l-2.981-2.98a.35.35 0 010-.496l.808-.808a.35.35 0 01.495 0l1.925 1.925 4.163-4.163a.35.35 0 01.495 0z" fill="currentColor"/></svg><svg class="ind" viewBox="0 0 12 12" fill="none"><path d="M2 5.4c0-.22.18-.4.4-.4h7.2c.22 0 .4.18.4.4v1.2a.4.4 0 01-.4.4H2.4a.4.4 0 01-.4-.4V5.4z" fill="currentColor"/></svg></span></label>hover 描边加深</span>
+      <span class="ctrl"><label class="cbx-wrap"><input class="cbx-input" type="checkbox" checked><span class="cbx"><svg class="ck" viewBox="0 0 12 12" fill="none"><path d="M9.589 2.903l.808.809a.35.35 0 010 .495L5.18 9.425a.35.35 0 01-.495 0l-2.981-2.98a.35.35 0 010-.496l.808-.808a.35.35 0 01.495 0l1.925 1.925 4.163-4.163a.35.35 0 01.495 0z" fill="currentColor"/></svg><svg class="ind" viewBox="0 0 12 12" fill="none"><path d="M2 5.4c0-.22.18-.4.4-.4h7.2c.22 0 .4.18.4.4v1.2a.4.4 0 01-.4.4H2.4a.4.4 0 01-.4-.4V5.4z" fill="currentColor"/></svg></span></label>勾选</span>
+      <span class="ctrl"><label class="cbx-wrap"><input class="cbx-input" type="checkbox" id="indDemo"><span class="cbx"><svg class="ck" viewBox="0 0 12 12" fill="none"><path d="M9.589 2.903l.808.809a.35.35 0 010 .495L5.18 9.425a.35.35 0 01-.495 0l-2.981-2.98a.35.35 0 010-.496l.808-.808a.35.35 0 01.495 0l1.925 1.925 4.163-4.163a.35.35 0 01.495 0z" fill="currentColor"/></svg><svg class="ind" viewBox="0 0 12 12" fill="none"><path d="M2 5.4c0-.22.18-.4.4-.4h7.2c.22 0 .4.18.4.4v1.2a.4.4 0 01-.4.4H2.4a.4.4 0 01-.4-.4V5.4z" fill="currentColor"/></svg></span></label>半选（全选时部分勾上）</span>
+      <span class="ctrl"><label class="cbx-wrap"><input class="cbx-input" type="checkbox" disabled><span class="cbx"><svg class="ck" viewBox="0 0 12 12" fill="none"><path d="M9.589 2.903l.808.809a.35.35 0 010 .495L5.18 9.425a.35.35 0 01-.495 0l-2.981-2.98a.35.35 0 010-.496l.808-.808a.35.35 0 01.495 0l1.925 1.925 4.163-4.163a.35.35 0 01.495 0z" fill="currentColor"/></svg><svg class="ind" viewBox="0 0 12 12" fill="none"><path d="M2 5.4c0-.22.18-.4.4-.4h7.2c.22 0 .4.18.4.4v1.2a.4.4 0 01-.4.4H2.4a.4.4 0 01-.4-.4V5.4z" fill="currentColor"/></svg></span></label>禁用</span>
+      <span class="ctrl"><label class="cbx-wrap cbx-16"><input class="cbx-input" type="checkbox" checked><span class="cbx"><svg class="ck" viewBox="0 0 12 12" fill="none"><path d="M9.589 2.903l.808.809a.35.35 0 010 .495L5.18 9.425a.35.35 0 01-.495 0l-2.981-2.98a.35.35 0 010-.496l.808-.808a.35.35 0 01.495 0l1.925 1.925 4.163-4.163a.35.35 0 01.495 0z" fill="currentColor"/></svg><svg class="ind" viewBox="0 0 12 12" fill="none"><path d="M2 5.4c0-.22.18-.4.4-.4h7.2c.22 0 .4.18.4.4v1.2a.4.4 0 01-.4.4H2.4a.4.4 0 01-.4-.4V5.4z" fill="currentColor"/></svg></span></label>16px（批量条 / 表头全选）</span>
+      <span class="ctrl"><label class="cbx-wrap"><input class="cbx-input" type="checkbox" checked><span class="cbx"><svg class="ck" viewBox="0 0 12 12" fill="none"><path d="M9.589 2.903l.808.809a.35.35 0 010 .495L5.18 9.425a.35.35 0 01-.495 0l-2.981-2.98a.35.35 0 010-.496l.808-.808a.35.35 0 01.495 0l1.925 1.925 4.163-4.163a.35.35 0 01.495 0z" fill="currentColor"/></svg><svg class="ind" viewBox="0 0 12 12" fill="none"><path d="M2 5.4c0-.22.18-.4.4-.4h7.2c.22 0 .4.18.4.4v1.2a.4.4 0 01-.4.4H2.4a.4.4 0 01-.4-.4V5.4z" fill="currentColor"/></svg></span></label><span class="kbd">Tab 键盘焦点环</span></span>
+    </div>
+
+    <div class="sec-head"><h2>应用位置</h2><span class="hint">待办勾选 · 会话行批量选择</span></div>
+    <ul class="rows">
+      <li class="row todo-row">
+        <label class="cbx-wrap"><input class="cbx-input" type="checkbox"><span class="cbx"><svg class="ck" viewBox="0 0 12 12" fill="none"><path d="M9.589 2.903l.808.809a.35.35 0 010 .495L5.18 9.425a.35.35 0 01-.495 0l-2.981-2.98a.35.35 0 010-.496l.808-.808a.35.35 0 01.495 0l1.925 1.925 4.163-4.163a.35.35 0 01.495 0z" fill="currentColor"/></svg><svg class="ind" viewBox="0 0 12 12" fill="none"><path d="M2 5.4c0-.22.18-.4.4-.4h7.2c.22 0 .4.18.4.4v1.2a.4.4 0 01-.4.4H2.4a.4.4 0 01-.4-.4V5.4z" fill="currentColor"/></svg></span></label>
+        <span class="row-title">补一版深色模式对比度检查</span>
+        <span class="chip">dsh-overview</span>
+        <span class="row-time num">今天</span>
+      </li>
+      <li class="row todo-row">
+        <label class="cbx-wrap"><input class="cbx-input" type="checkbox" checked><span class="cbx"><svg class="ck" viewBox="0 0 12 12" fill="none"><path d="M9.589 2.903l.808.809a.35.35 0 010 .495L5.18 9.425a.35.35 0 01-.495 0l-2.981-2.98a.35.35 0 010-.496l.808-.808a.35.35 0 01.495 0l1.925 1.925 4.163-4.163a.35.35 0 01.495 0z" fill="currentColor"/></svg><svg class="ind" viewBox="0 0 12 12" fill="none"><path d="M2 5.4c0-.22.18-.4.4-.4h7.2c.22 0 .4.18.4.4v1.2a.4.4 0 01-.4.4H2.4a.4.4 0 01-.4-.4V5.4z" fill="currentColor"/></svg></span></label>
+        <span class="row-title">把 header 搜索框默认宽度改回 260</span>
+        <span class="chip">dsh-overview</span>
+        <span class="row-time num">昨天</span>
+      </li>
+    </ul>
+  </section>
+</div>
+
+<!-- 批量条（原型交互演示，接口落地后接真实批量） -->
+<div class="selbar" id="selbar">
+  <span class="cnt">已选 <b id="selCount">0</b></span>
+  <span class="sep"></span>
+  <button type="button" data-act="archive">归档</button>
+  <button type="button" data-act="unarchive">恢复</button>
+  <button type="button" class="danger" data-act="delete">删除</button>
+  <span class="sep"></span>
+  <button type="button" id="selClear">取消</button>
+</div>
+
+<!-- 原型工具条（非设计的一部分） -->
+<div class="tools">
+  <button type="button" id="annotBtn" aria-pressed="false" title="快捷键 A">标注结构</button>
+  <span class="div"></span>
+  <button type="button" data-theme-set="light">浅色</button>
+  <button type="button" data-theme-set="dark">深色</button>
+  <button type="button" data-theme-set="auto">跟随系统</button>
+</div>
+
+<script>
+const root = document.documentElement;
+const THEMES = ['light', 'dark', 'auto'];
+const GLYPH = { light: '☾', dark: '☀', auto: '◐' };
+
+function setTheme(t) {
+  root.dataset.theme = t;
+  document.getElementById('themeBtn').textContent = GLYPH[t];
+  document.querySelectorAll('[data-theme-set]').forEach((b) =>
+    b.setAttribute('aria-pressed', String(b.dataset.themeSet === t)));
+  try { localStorage.setItem('dshw-theme', t); } catch (e) {}
+}
+setTheme(localStorage.getItem('dshw-theme') || 'auto');
+document.getElementById('themeBtn').onclick = () => {
+  const i = THEMES.indexOf(root.dataset.theme);
+  setTheme(THEMES[(i + 1) % THEMES.length]);
+};
+document.querySelectorAll('[data-theme-set]').forEach((b) => (b.onclick = () => setTheme(b.dataset.themeSet)));
+
+// 视图切换
+document.querySelectorAll('[data-view]').forEach((b) => {
+  b.onclick = () => {
+    const v = b.dataset.view;
+    document.body.classList.toggle('view-list', v === 'list');
+    document.querySelectorAll('[data-view]').forEach((x) =>
+      x.setAttribute('aria-pressed', String(x.dataset.view === v)));
+  };
+});
+
+// 结构标注
+const annot = () => document.body.classList.toggle('annotate');
+document.getElementById('annotBtn').onclick = () => {
+  const on = annot();
+  document.getElementById('annotBtn').setAttribute('aria-pressed', String(document.body.classList.contains('annotate')));
+};
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'a' || e.key === 'A') {
+    const el = document.activeElement;
+    if (el && (el.tagName === 'TEXTAREA' || (el.tagName === 'INPUT' && el.type === 'text'))) return;
+    document.getElementById('annotBtn').click();
+  }
+});
+
+// 命令条滚动阴影
+const page = document.querySelector('.cmdbar');
+window.addEventListener('scroll', () => {
+  page.classList.toggle('is-scrolled', window.scrollY > 8);
+}, { passive: true });
+
+// 半选态演示（indeterminate 只能由脚本设置）
+const ind = document.getElementById('indDemo');
+if (ind) ind.indeterminate = true;
+
+// ---------------- 项目勾选（原型交互：卡片与列表共享同一份选择） ----------------
+const selAll = document.getElementById('selAll');
+const allSels = Array.from(document.querySelectorAll('.rowSel, .cardSel'));
+const selbar = document.getElementById('selbar');
+const selCount = document.getElementById('selCount');
+const TOTAL = new Set(allSels.map((i) => i.dataset.pid)).size;
+
+const pickedIds = () => new Set(allSels.filter((i) => i.checked).map((i) => i.dataset.pid));
+const setPicks = (check, ids) => allSels.forEach((i) => {
+  if (!ids || ids.has(i.dataset.pid)) i.checked = check;
+});
+
+function syncSelection() {
+  const ids = pickedIds();
+  allSels.forEach((i) => {
+    const box = i.closest('.lrow, .card');
+    if (box) box.classList.toggle('is-picked', ids.has(i.dataset.pid));
+  });
+  if (selAll) {
+    selAll.checked = ids.size > 0 && ids.size === TOTAL;
+    selAll.indeterminate = ids.size > 0 && ids.size < TOTAL;   // 表头三态
+  }
+  if (selCount) selCount.textContent = String(ids.size);
+  selbar.classList.toggle('on', ids.size > 0);
+}
+const clearSel = () => { setPicks(false); syncSelection(); };
+
+allSels.forEach((i) => i.addEventListener('change', () => {
+  setPicks(i.checked, new Set([i.dataset.pid]));   // 另一视图里同一项目跟着变
+  syncSelection();
+}));
+if (selAll) selAll.addEventListener('change', () => { setPicks(selAll.checked); syncSelection(); });
+document.getElementById('selClear').addEventListener('click', clearSel);
+selbar.addEventListener('click', (e) => {
+  const act = e.target.closest('button')?.dataset?.act;
+  if (act) clearSel();          // 原型无后端：点完即视为已提交
+});
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && selbar.classList.contains('on')) clearSel();
+});
+syncSelection();
+
+/* ---------- 设置：显示字段 / 封面（照 Base 的 header__btn-group / file-list-column-setting） ---------- */
+(function () {
+  const gridEl = document.querySelector('.grid');
+  const pop = document.getElementById('setPop');
+  const setBtn = document.querySelector('[data-pop="setPop"]');
+  if (!gridEl || !pop || !setBtn) return;
+
+  const COLS = {
+    cb: '20px', name: 'minmax(0,1.6fr)', path: 'minmax(0,1.5fr)',
+    sessions: '84px', todos: '84px', when: '112px', act: '40px',
+  };
+  const ORDER = ['cb', 'name', 'path', 'sessions', 'todos', 'when', 'act'];
+  const showsCol = (k) => k === 'cb' || k === 'name' || k === 'act';
+
+  function applyCols() {
+    const on = new Set([...pop.querySelectorAll('[data-col]')].filter((c) => c.checked).map((c) => c.dataset.col));
+    const tpl = ORDER.filter((k) => showsCol(k) || on.has(k)).map((k) => COLS[k]).join(' ');
+    document.querySelectorAll('.lhead, .lrow').forEach((row) => {
+      row.style.gridTemplateColumns = tpl;
+      row.querySelectorAll('.lc[data-field]').forEach((cell) => { cell.hidden = !on.has(cell.dataset.field); });
+    });
+    pop.querySelectorAll('[data-col]').forEach((c) => {
+      c.closest('.pop-item').classList.toggle('is-off', !c.checked);
+    });
+  }
+  pop.querySelectorAll('[data-col]').forEach((c) => c.addEventListener('change', applyCols));
+  applyCols();
+
+  pop.addEventListener('click', (e) => {
+    const cover = e.target.closest('[data-cover]');
+    if (cover) {
+      const on = cover.dataset.cover === 'on';
+      gridEl.querySelectorAll('.card').forEach((c) => c.classList.toggle('no-thumb', !on));
+      pop.querySelectorAll('[data-cover]').forEach((b) => b.classList.toggle('is-on', b === cover));
+    }
+  });
+
+  setBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    pop.hidden = !pop.hidden;
+    setBtn.setAttribute('aria-expanded', String(!pop.hidden));
+  });
+  document.addEventListener('click', (e) => {
+    if (!e.target.closest('#setPop') && !e.target.closest('[data-pop]')) {
+      pop.hidden = true;
+      setBtn.setAttribute('aria-expanded', 'false');
+    }
+  });
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') pop.hidden = true; });
+})();
+</script>
+</body>
+</html>

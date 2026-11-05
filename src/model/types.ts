@@ -39,6 +39,11 @@ export interface SessionHead {
   createdAt: number
   cwd: string
   agentPreset?: string
+  /** 会话来源；'subagent' 表示子代理会话（宿主不会把它放进工作区的 sessionIds） */
+  origin?: string
+  delegationDepth?: number
+  /** 子代理会话指向的母会话 id（宿主只在子代理转录头里写这个字段） */
+  parentSession?: string
   [k: string]: unknown
 }
 
@@ -69,6 +74,8 @@ export interface SessionFileInfo {
   head: SessionHead
   /** 文件修改时间（epoch ms） */
   fileMtime: number
+  /** 压缩后文件字节数（诊断面板估算磁盘占用） */
+  size: number
 }
 
 /** 归一化后的会话视图（L1/L2 直接消费） */
@@ -97,6 +104,16 @@ export interface SessionMeta {
   source: 'live' | 'archive' | 'cacheOnly'
   /** sessions 目录下的相对路径（live 才有） */
   dirName: string | null
+  /** 会话头 origin（'subagent' 等）；未知为 null */
+  origin: string | null
+  /** 母会话 id；子代理会话靠它挂到父会话所在的项目 */
+  parentSession: string | null
+  /** 是否靠「父会话归属」被带进项目的子会话（cwd 与本项目不同，不算 staleCwd） */
+  derived: boolean
+  /** 压缩后文件字节数（live 才有） */
+  sizeBytes: number | null
+  /** 转录里没有任何 user/assistant 消息：宿主新建后切走留下的空壳，宿主已不再列出 */
+  empty: boolean
 }
 
 /** 项目（工作区）聚合视图 */
@@ -116,6 +133,41 @@ export interface ProjectState {
   /** 归属于该路径的全部会话（含归档），按 lastActivityAt 倒序 */
   sessions: SessionMeta[]
   lastActivityAt: number | null
+  /**
+   * 项目改名/移动后，旧会话记录里遗留的 cwd（与工作区 path 不一致）。
+   * 归属由 workspace.sessionIds 决定，cwd 只作为展示与提示用途。
+   */
+  staleCwds: string[]
+}
+
+/** 投影缓存问题（诊断用；本插件只读不写，修复交给宿主） */
+export interface CacheIssue {
+  /** no-record: live 会话没有 projcache 记录；no-title: 记录缺失或没写标题行且首条消息兜底失败 */
+  kind: 'no-record' | 'no-title'
+  sessionId: string
+  title: string | null
+  cwd: string | null
+}
+
+/** 侧栏里看不到的会话（子代理等，宿主不把它们放进工作区 sessionIds） */
+export interface UnclaimedSession {
+  sessionId: string
+  title: string | null
+  cwd: string | null
+  createdAt: number | null
+  origin: string | null
+  sizeBytes: number
+  dirName: string | null
+  /** cwd 是否仍对应一个已注册工作区：true 表示「只是没登记成员表」，false 才是彻底无主 */
+  pathRegistered: boolean
+}
+
+/** 数据卫生诊断：全部只读证据，不含任何修复动作 */
+export interface Diagnostics {
+  cacheIssues: CacheIssue[]
+  unclaimed: UnclaimedSession[]
+  /** 已从列表忽略的归档缓存残留记录数 */
+  staleArchiveRecords: number
 }
 
 /** 聚合快照（CLI / 宿主 REST / UI 共用） */
@@ -124,4 +176,5 @@ export interface WorkbenchState {
   projects: ProjectState[]
   /** 各数据源读取时的降级/告警信息（R5：不白屏，如实上报） */
   warnings: string[]
+  diagnostics: Diagnostics
 }

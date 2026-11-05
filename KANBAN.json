@@ -30,7 +30,7 @@
         "Q2"
       ],
       "createdAt": 1793522329308,
-      "updatedAt": "2026-11-01T10:33:33.895Z",
+      "updatedAt": 1793529213895,
       "summary": "改用官方客户端会话列表快照作为运行中真源：新增 src/client/liveness.ts（subscribeLiveness/getLivenessSnapshot/runningIdsFromList/bindSessionLiveness），plugin.tsx 的 inject 加入 sessions 并绑定 ctx.sessions.list，App/Wall/Detail 通过 useSyncExternalStore 消费；ready 时以客户端快照为准（空数组也是权威），未绑定才回退 state.liveSessionIds。判定条件 running===true || runningSubagentCount>0 || pendingInteraction!=null。新增 tests/liveness.test.ts（4 用例），共 19 用例通过；版本 0.1.9 已构建安装（client hash 760F8A48CC3C1A1C）。"
     },
     {
@@ -189,8 +189,8 @@
         "perf",
         "model"
       ],
-      "createdAt": "2026-11-01T10:37:46.337Z",
-      "updatedAt": "2026-11-01T10:37:46.338Z",
+      "createdAt": 1793529466337,
+      "updatedAt": 1793529466338,
       "summary": "src/model/sources.ts 的 readSessionHeads 增加进程内 headCache，以 (size:mtimeMs) 指纹跳过未变化文件，删除的文件同步淘汰；导出 clearSessionHeadCache() 供测试隔离。实测本机 47 会话/58MB：冷 486ms → 热 10ms。版本 0.1.10 已构建安装（host 需重启生效）。",
       "rationale": "宿主周期重写投影缓存会触发 rebuild()，而每次重建都同步整文件解压 58MB 只为读第一行头信息，跑在宿主事件循环上，会话规模增长后会造成明显卡顿。",
       "rejected": "流式解压只读首行（需把 readSessionHeads 改异步，波及 buildState/CLI/测试签名，收益只在进程启动一次）；把头部写进独立索引文件（违背对宿主数据零写入）；依赖 projcache 标题（会周期性重写且并非每会话都有记录）。"
@@ -207,8 +207,8 @@
         "search",
         "todos"
       ],
-      "createdAt": "2026-11-01T10:53:08.147Z",
-      "updatedAt": "2026-11-01T10:53:08.147Z",
+      "createdAt": 1793530388147,
+      "updatedAt": 1793530388147,
       "summary": "readSessionHeads 改为异步流式解压（createReadStream + createZstdDecompress，读到首个换行即停），buildState/CLI 异步化；host 删除 probeServices/sampleSessionService/extractFirstId/collectSessionIds 与 /_debug 整条路由，/state 改为惰性单飞构建且不再返回 liveSessionIds；SSE 加 25s 心跳与 close 清理；SearchHit 重写为 searchWorkbench（项目名/会话标题/待办三路匹配、按项目分组、命中会话 openSession 直达）；todosRaw 改为结构化 todos 并在详情页聚合（in_progress 优先、会话行显示待办数）；无标题 live 会话用首条 user/message 兜底（60 字截断）。实测冷建 486→29ms、热 10ms；47 会话 / 20 条待办 / 7 条空会话仍无标题。版本 0.1.11 已安装，测试 22/22、tsc 0，GET /state 已无 liveSessionIds，SSE 收到 hello + change + ping。",
       "rationale": "上一轮性能只做了会话头缓存（热读 10ms），冷启动仍整文件解压 58MB 压在宿主事件循环；宿主探针与 /_debug 是调试遗留、会暴露内部服务结构；R4/R6 是 PRD 里尚未闭环的 P0/P1，用户明确要求「优化所有 P0、P1」。",
       "rejected": "继续只靠缓存（冷启动仍 ~490ms）；把头部写入独立索引文件（违背对宿主数据零写入）；搜索建倒排索引（仅几十会话，实时扫描足够）；待办走宿主 todo 工具事件（Q3 未验证，当前只需只读聚合）；给空会话编造标题（不真实，保留「(无标题)」并在 README 说明）。"
@@ -216,18 +216,279 @@
     {
       "id": "card-be756a33-7bfd-145e-b799-68e1a9964ca4",
       "title": "P2/P3 收尾：路由集成测试、CI build、bundle minify、参考项目的收藏/批量归档/归档搜索",
-      "status": "todo",
+      "status": "done",
       "tags": [
         "p2",
         "p3",
         "testing",
         "ci"
       ],
-      "createdAt": "2026-11-01T10:53:08.147Z",
-      "updatedAt": "2026-11-01T10:53:08.147Z",
-      "summary": "",
-      "rationale": "P0/P1 已闭环，剩余为质量与增值项：/state 与删除路由只有手工 curl 验证；CI 只跑 check+test 不跑 build（构建失败要等安装时才发现）；client bundle 未 minify；参考 dsh-archive-manager 还有收藏、批量归档/删除、归档内容搜索、缓存诊断、孤儿 subagent 清理、跨工作区移动可借鉴。",
-      "rejected": "暂缓理由：路由集成测试要伪造 cordis ctx 与 webServer，成本高于当前收益；归档内容全文搜索需要索引，与 R4 实时扫描口径冲突，等真实使用量再定。"
+      "createdAt": 1793530388147,
+      "updatedAt": 1793532605620,
+      "summary": "P3 a/b/c 全部落地并发布 v0.1.12（model + host + client + 测试）：①a=正文检索（/dsh-overview/search，只认 user/message 且 source.kind==='user' 与 assistant text part，20 条一批串行流式、不建索引）+ 只读预览（/dsh-overview/preview，命中±2 起 8 条、单条 2000 码元）+ 顶栏搜索弹层两段式（本地命中在前、正文命中点开预览抽屉）②b=数据诊断（diagnostics.cacheIssues / unclaimed / staleArchiveRecords，抽屉分「投影缓存异常 / 无主转录 / 未登记但目录仍在 / 归档缓存残留」，无主转录才给删除）+ 投影缓存只读不改写（点「打开会话」交给宿主重建）③c=批量归档/取消归档/永久删除（BatchResult 契约，单条失败继续、remaining 可重试）+ 闲置整理（7/30/90 天、五项排除、当页撤销）+ 插件详情卡两个开关（侧栏入口、正文检索，localStorage 偏好）。顺带修用户提的两个问题：侧栏宽度 264px→clamp(300px,26vw,380px)（待办正文独占整行，来源会话另起一行；原来一行只够 ~9 个汉字且每行两个圆点）、项目改名/搬目录后会话丢失（改用 workspace.sessionIds 权威成员表归属，cwd 仅作线索，staleCwds 提示旧路径）。P2 也一并完成：宿主路由集成测试 tests/host-routes.test.ts（5 例）+ p3 单测（12 例）+ client bundle minify（108905→72523 B）。npm run check 通过、38/38 测试通过、打包并安装到 desktop profile。",
+      "rationale": "参考项目分析（docs/reference-archive-manager.md）给出的 ROI 排序里，检索/预览/诊断/批量/整理是可复刻本仓最需要的五项，且都不需要抢宿主服务身份或写宿主数据。会话归属必须改，是因为用户实际遇到了「项目改名后会话和待办一起消失」——根因是完全没用 ws.sessionIds 而只按 cwd 归桶。侧栏宽度是可用性问题：264px 固定列让中文待办每行断句、且待办行同时渲染了 CSS 圆点和 React 圆点两个点。",
+      "rejected": "放弃：①复用 dsh-archive-manager 的 Typert overlay 挂 registry（抢宿主服务身份，两个插件会打架）②侧栏星标 DOM 织入（与三方皮肤冲突）③把「成员表没登记」的会话一律当作可删垃圾（实测 26 条里 2 条的 cwd 仍是活工作区，删了就是真丢数据，所以拆成 pathRegistered 两类，只有彻底无主的才给删除）④把闲置整理做成定时后台自动归档（无法证明「确实没在用」，只做手动触发 + 当页撤销）⑤给 workspace.json 增加成员表回填（插件硬边界是零写入宿主数据）。",
+      "description": "P2：/state 与 /session/delete 的路由集成测试（可照参考项目的 test/fixtures/isolated-host.mjs 做假宿主）、CI 里跑 npm run build、client bundle minify。\n\nP3 已按 docs/reference-archive-manager.md 拆批（原「收藏/批量归档/归档搜索/缓存诊断/孤儿清理/跨工作区移动」六项被重新排序）：\n- P3-a 正文检索（user/assistant message，排除工具/注入/推理）+ 只读预览上下文 —— 纯读零风险，收益最高；一份实现同时覆盖 live 与归档，并掉原「归档内容搜索」。\n- P3-b 投影缓存诊断 + 按需重建（cacheIdentity 生命周期见证 + 回读确认，消掉 7 条「(无标题)」）、孤儿 subagent 检测回收（三路取证 + 批量调 deleteSessionArtifacts）。\n- P3-c BatchResult{requested,succeeded,skipped,failures,remaining,refreshError} 批量契约 + 闲置会话整理 + plugins.bundle.config 配置卡与能力探测式 slot 挂载。\n- 观察不排期：收藏（DOM 织入，参考项目为此吃过 #90/#92/#99 三个皮肤冲突）、跨工作区移动（zstd 首帧重写 + 备份回滚，风险最高）。"
+    },
+    {
+      "id": "card-e56c45c0-49d6-4482-bb4e-c57b561c5dca",
+      "title": "拆解参考插件 dsh-archive-manager，产出可复刻清单 docs/reference-archive-manager.md",
+      "summary": "通读参考项目 src/（index、host-install、workspace 1349 行、session-move、archive-discovery、cache-rebuild*、archive-organizer、sidebar-entry、plugin-updater、release-age、explorer-path-policy、client.ts 4053 行）与 README/CHANGELOG，写入 docs/reference-archive-manager.md：按 ROI 排出 8 项可复刻能力（正文检索+预览、缓存诊断重建、BatchResult 批量契约、孤儿 subagent 回收、闲置整理、bundle.config 配置卡+能力探测挂载、DateRange 控件规格、在线更新器），4 项明确不抄（Typert overlay、侧栏星标 DOM 织入、双入口同步、轮次统计/日志修复/历史缓存迁移），并把 P3 拆成 a/b/c 三批。关键发现：正文搜索的质量命门是「只取 user/assistant message 且 user.source.kind==='user'」；缓存重建必须用 cacheIdentity(version,createdAt,cwd,isSeeded) 做生命周期见证 + 回读确认；更新器依赖 profile 级 pnpm-workspace.yaml 的 minimumReleaseAgeExclude 合并，而本仓 private:true 没有 npm 包，更新器暂时无对象。",
+      "rationale": "README 的 P3 原本只有一行「（参考 dsh-archive-manager）收藏、批量归档/删除、归档内容搜索、投影缓存诊断、孤儿 subagent 清理、跨工作区移动」——既没有优先级，也没有判断哪些抄了会亏。用户要求分析该参考项目找可复刻点，因此需要一份对照过源码的取舍清单，否则 P3 会按「照单全收」推进，把 DOM 织入、Typert overlay 这类高成本低收益的东西也搬进来。",
+      "rejected": "放弃了「照抄全部 14 个 remote 方法 + 继承 WorkspaceRegistry」的完整对齐方案：那会与宿主或真正安装的 archive-manager 抢 workspaceRegistry 服务身份，而我们只需要删除入口，自建 HTTP 路由已够。也放弃按参考项目自身路线图排序（它把「收藏星标」排在最前），因为那是它作为归档工具的核心卖点，对「全景概览」只是过滤手段，而它为此连吃 #90/#92/#99 三个皮肤冲突 issue。",
+      "sourceSessionId": "session-40f35738-4676-44df-a7eb-f2af33a114a2",
+      "status": "done",
+      "tags": [
+        "research",
+        "reference",
+        "p3"
+      ],
+      "createdAt": 1793531245993,
+      "updatedAt": 1793531245993
+    },
+    {
+      "id": "card-ad8cec1c-00de-4d32-bcdd-532e26745922",
+      "title": "重启桌面应用验证 v0.1.21（线框详情页 + 并入/迁移 + 子会话归属 + 空壳清理 + 多帧 zstd + 人工待办 + 配置卡）",
+      "description": "重启后逐项点验：\n1) 详情页新布局：单行头 + 一行 KPI + tab 行内筛选/排序 + 两行会话行 + 右栏两张卡；\n2) 并入（写 ~/.dsh/storages/dsh-overview-aliases.json）→ 删除某个会话后并入结果仍存在（回归 v0.1.14 被回退的 bug）；\n3) 迁移：孤儿/旧路径项目里点「迁移到本项目」→ 宿主侧栏该会话不再显示「未分组」、点击能正常打开；备份落在 ~/.dsh/storages/dsh-overview-migration-backup/；\n4) 子会话：dsh-onenpc 里应看到 7 条来自 dsh-edict 的记录（含 6 个带「子会话」标签的子代理），未归属会话数应从 23 降到 10 左右；\n5) 预览与正文检索：点预览按钮不再空白，搜索能命中正文；\n6) 人工待办：添加/勾选/删除，切项目不串数据；宿主 todo_write 后 1–4 秒出现在待办卡；\n7) 配置卡：侧栏入口开关生效且关闭后不留容器。\n\n注意：宿主侧路由与 streamLines 都在应用启动时加载，必须重启应用；只刷新页面只更新前端。",
+      "rationale": "v0.1.12 已装进 desktop profile，但宿主半只在应用启动时加载：实测当前进程的 GET /dsh-overview/state 仍然没有 diagnostics 字段（旧代码），所以新的诊断抽屉/正文检索/批量入口都还没在真实页面里跑过。需要重启应用后逐项点验，否则线上行为只是「类型和单测通过」而非「真的能用」。",
+      "rejected": "放弃了「用 CLI 加本地假路由代替真机验证」：单测已覆盖路由契约，但侧栏宽度、抽屉滚动、批量多选这类是纯视觉/交互，只能在真实页面看。也放弃「靠 HMR 热更」：client bundle 改了要走 dev server，本次没有开。",
+      "sourceSessionId": "session-40f35738-4676-44df-a7eb-f2af33a114a2",
+      "status": "todo",
+      "tags": [
+        "verify",
+        "release",
+        "ui"
+      ],
+      "createdAt": 1793532613709,
+      "updatedAt": 1793542534876
+    },
+    {
+      "id": "card-c692dfb4-bc60-4258-94cd-6afe645a0047",
+      "title": "修 desktop profile 里 dsh-onenpc 的陈旧依赖路径（link:D:\\Projects\\dsh-edict 已改名为 dsh-onenpc）",
+      "description": "正确修法：把 `~/.dsh/profiles/desktop/package.json` 的 `\"dsh-onenpc\": \"link:D:\\\\Projects\\\\dsh-edict\"` 改成 `link:D:\\\\Projects\\\\dsh-onenpc`，然后跑 `dsh plugin --profile desktop install` 让 pnpm 重新落 junction（可先删掉手工建的 node_modules/dsh-onenpc）。改完确认 `dsh plugin --profile desktop list` 里出现 dsh-onenpc，且 list 不再报 bundle 解析错误。",
+      "rationale": "安装 dsh-overview 0.1.12 时 `dsh plugin add` 在 reconcile 阶段抛 `cannot resolve profile bundle \"dsh-onenpc\"`——profile 的 package.json 仍写 `link:D:\\Projects\\dsh-edict`，而该目录已改名为 D:\\Projects\\dsh-onenpc。这会让应用下次启动时解析 bundle 失败。我临时手工重建了 junction（node_modules/dsh-onenpc → D:\\Projects\\dsh-onenpc）让解析能过，但 junction 不在 pnpm 锁里，下次 pnpm install 会被清掉。",
+      "rejected": "放弃了「直接删掉 profile 里的 dsh-onenpc 依赖与 bundle 条目」：那是用户的插件，删了等于替用户做取舍；也放弃「改回原目录名」：目录改名是用户行为，不能倒推。",
+      "sourceSessionId": "session-40f35738-4676-44df-a7eb-f2af33a114a2",
+      "status": "todo",
+      "tags": [
+        "env",
+        "hygiene"
+      ],
+      "createdAt": 1793532613715,
+      "updatedAt": 1793532613715
+    },
+    {
+      "id": "card-6bc8bbcf-db08-4ab0-b501-31395dcb392f",
+      "title": "修四点反馈：多帧 zstd（预览空白/检索 0 命中）、并入工作区、人工待办、实时待办链路验证",
+      "description": "用户四点反馈（m00856）的处置：①改名/搬目录后会话丢失 → 新增显式「并入工作区」动作（POST /dsh-overview/session/adopt，只写 workspace.json 的 sessionIds，写前备份 + 写后回读）；②实时待办链路实测 1–4 秒（宿主 todo/write → projcache rows.todos → fs.watch 400ms 防抖 → SSE → 前端刷新）；③人工待办（localStorage dsho-manual-todos，标「手动」，可勾选/删除）；④预览空白根因是应用内 Node 解完第一个 zstd 帧就结束（14MB 转录含 10770 帧）→ streamLines 改为自解析帧边界 + 逐帧解压。版本 0.1.14 已安装，41/41 测试通过。",
+      "summary": "已发布 0.1.14 并安装到 desktop profile：streamLines 支持多帧 zstd（逐帧 zstdDecompressSync，skippable 帧跳过，plain jsonl 兜底）、新增 /session/adopt 与详情页「并入工作区」UI、新增 src/client/manualTodos.ts 与待办卡输入框/勾选/删除、App 给 Detail 加 key 防串项目、CSS 追加 .wb-adopt 与待办卡样式、测试 41 例全过（新增多帧 zstd 与 adopt 写入用例）、README 与两篇 Agent Note 已写。宿主侧需重启应用生效。",
+      "rationale": "用户四点里有两点（预览空白、改名后丢失）是「看起来做了但真机上无效」的假完成，必须在真实运行环境复现并证明修好才算了结；另两点是新增能力。这也是本轮唯一一次对宿主数据的写入面扩张，需要留在板上供后续复查边界。",
+      "rejected": "否掉了三个方案：按 cwd 相似度自动把旧会话并入新工作区（改名在机械上不可识别，误并不可撤销）；只在插件内维护旧路径→工作区别名表（宿主侧栏/CLI 与插件两套真相）；升级运行环境 Node 版本以修 zstd 跨帧解码（正确性绑在运行时版本上，且 CLI 与 Electron 内嵌 Node 行为不同）。",
+      "sourceSessionId": "session-40f35738-4676-44df-a7eb-f2af33a114a2",
+      "status": "done",
+      "tags": [
+        "bug-fix",
+        "feature",
+        "host",
+        "client",
+        "release"
+      ],
+      "createdAt": 1793536607469,
+      "updatedAt": 1793536607469
+    },
+    {
+      "id": "card-3cd339eb-821b-46b6-8071-de3b30ac5911",
+      "title": "修「并入工作区」被删除操作回退：并入改为写插件归属表而非宿主 workspace.json",
+      "description": "用户报（m01118）：先「并入工作区」再点击某个会话的删除按钮，并入结果回到原状。根因两条：①宿主 workspace.json 的 sessionIds 以内存为准，插件改文件宿主不知道，宿主下一次成员表写入（例如删除会话触发的记账清理）会用内存旧列表覆盖落盘；②宿主读成员表时按 cwd 过滤，项目改名后会话 cwd 与新工作区 path 不一致，本来就不会被返回（@deepseek-ai/dsh-workspace 文档明写 canonical cwd mismatches are never returned）。修法：并入改为写插件归属表 ~/.dsh/storages/dsh-overview-aliases.json（normalizePath(旧 cwd) → workspaceId），buildState 用 aliases 兜底归组并记 staleCwds、并把它们从「无主转录」诊断里排除；路由改为 {workspaceId, cwd} + forget 撤销；详情页 stale 提示加「取消并入」。0.1.15 已安装，42/42 测试通过（新增归属表单测、buildState 归属用例、路由别名写入用例）。",
+      "summary": "src/host/adopt.ts 重写为归属表读写（readAliases / adoptCwdIntoWorkspace / forgetCwdAlias，tmp+rename+回读）；buildState 增 aliases 选项并在成员表未命中时按 cwd 归组、记 staleCwds、从诊断排除；/session/adopt 改 {workspaceId,cwd,forget}；api.adoptSessions(workspaceId,cwd,{forget})；Detail 保留并入选择器并新增「取消并入」；新增 .wb-link-btn 样式；测试从 41 增到 42 并改写 adopt 相关用例；README/Agent Note 已更新并交叉链接旧 note；版本 0.1.15 已 build/pack/安装。",
+      "rationale": "v0.1.14 的并入方案被真机否证，属于「实现了一条看似正确但与宿主语义冲突的写路径」，必须换设计而不是打补丁；同时这条经验（宿主成员表是内存真相 + 读取即过滤）决定了以后任何「把会话挂回工作区」的需求都只能走插件归属或真正的 move。",
+      "rejected": "否掉三条：继续写 workspace.json 并额外触发宿主 reload（没有 reload API，且过滤逻辑仍在）；调宿主 attachSession（要求 cwd === workspace.path，改名场景必被拒）；重写转录头 cwd 实现真迁移（要动 zstd 帧与目录搬迁，属 P4，不应混进显示归属的修复）。",
+      "sourceSessionId": "session-40f35738-4676-44df-a7eb-f2af33a114a2",
+      "status": "done",
+      "tags": [
+        "bug-fix",
+        "feature",
+        "host",
+        "client",
+        "release"
+      ],
+      "createdAt": 1793537223833,
+      "updatedAt": 1793537223833
+    },
+    {
+      "id": "card-0eb1091f-7519-4b11-89dd-0a4d3b35869c",
+      "title": "界面口径改造：顶栏/详情页各自标注统计范围、运行中改数会话、KPI 压成一行、右栏去重",
+      "description": "用户（m01275）指出三处界面问题：①同屏数字自相矛盾——顶栏「运行中 1」vs tab「进行中 0」、统计卡「活跃会话 9」脚注「0 个近期活跃」、顶栏「待办 19」vs 卡片「待办 0」，根因是一处统计全部工作区、一处统计当前项目，而界面没写范围；②右栏「项目动态」把左栏会话列表原样抄了 5 条，零新增信息；③4 张统计卡里 3 张是 0，其中「归档不等于失忆」根本不是数据。改法：顶栏胶囊加「全部」范围标签 + tooltip，并且「运行中」改为统计**会话数**（原来是数「有会话在跑的项目数」，这才是 1 vs 0 的直接原因）；详情页 4 张卡压成一行 44px KPI 条（会话 · 待办 · 归档 · 近 7 日活跃），最左标「本工作区」，0 值弱化、变化量放数值右侧；「活跃会话」拆成 会话总数 与 近 7 日活跃 两个独立指标；右栏换成 运行中会话 / 今日变化量 / 本工作区诊断计数（可打开诊断抽屉），删掉项目动态卡；顶栏待办把人工待办也算进去并订阅 dsho-manual-todos 事件。v0.1.17 已安装。",
+      "summary": "App.tsx：globalRunning 改用 splitSessions 统计会话数、globalTodos 并入人工待办并订阅变更事件、胶囊加 .sc「全部」+ tooltip、给 Detail 传 onOpenDiagnostics。Detail.tsx：删掉 4 张统计卡与「项目动态」，新增 .wb-kpi 单行 KPI（含 is-zero 弱化与变化量）、运行中卡、变化卡（今日有活动/新建/新增手动待办/无标题）、本工作区诊断卡（按会话 id 与 cwd 过滤 diagnostics），tabs 与 KPI 均标注范围。Wall.tsx：卡片统计加 title「统计范围：本项目」，活跃会话改名近期活跃。themeCss.ts：新增 .wb-kpi/.wb-kv-list/.wb-pill .sc，删除 .wb-mstrip/.wb-mcell。manualTodos.ts：新增 subscribeManualTodos 与变更事件。tsc 通过、42/42 测试通过、lib/client.js 85259 B，版本 0.1.17 已 pack + 安装并校验。",
+      "rationale": "数字自相矛盾是信任问题：用户看到同屏两个不同的「运行中/待办/归档」，会认为整个插件的数据不可信，进而不再使用它。修法必须同时动口径（running 数会话不数项目）与标注（每处数字自带范围），只加 tooltip 不够。",
+      "rejected": "否掉三种：只在 tooltip 里写范围（用户不会悬停，矛盾仍在明面上）；把顶栏改成只统计当前项目（那进 L1 看板时顶栏就没有意义了，且顶栏原本的用途就是全局巡检）；保留统计卡只改字号（4 张卡即使数字对，也是用 100px 高度说 4 句话，P1 的问题不是数据而是排版）。",
+      "sourceSessionId": "session-40f35738-4676-44df-a7eb-f2af33a114a2",
+      "status": "done",
+      "tags": [
+        "ui",
+        "client",
+        "consistency",
+        "release"
+      ],
+      "createdAt": 1793538325372,
+      "updatedAt": 1793538325372
+    },
+    {
+      "id": "card-651e4796-ddb5-47ea-bc24-292cf5995874",
+      "title": "「并入失败：workspaceId and sessionIds are required」= 旧宿主未重启，并把该错误翻译成可执行提示",
+      "description": "用户报（m01404）「并入失败：workspaceId and sessionIds are required」。排查结论：安装目录里的宿主 bundle（0.1.17/0.1.18）已经只有新校验 `cwd is required (workspaceId is required unless forget)`，而这条报错只可能来自**旧宿主**按 `sessionIds` 校验——宿主路由在应用启动时加载进内存，装了新插件但没重启应用，客户端发 `{workspaceId, cwd, forget}` 就被旧宿主 400。已核实安装的 lib/client.js 请求体确实是 `{workspaceId:e,cwd:t,forget:...}`。处置：①向用户说明必须重启桌面应用（路由属宿主侧，刷新页面只换 UI）；②客户端把这条错误翻译成「宿主插件仍是旧版本（路由在应用启动时加载），请重启桌面应用后再试」；③0.1.18 已 build/pack/install，42/42 通过。",
+      "summary": "核实新旧校验差异，确认报错来自未重启的旧宿主进程；Detail.tsx 新增 hintFor，把「sessionIds are required」翻译成「请重启桌面应用后再试」，并入/取消并入两条失败路径均使用；版本 0.1.18 已安装，42/42 测试通过，lib/client.js 85550 B。",
+      "rationale": "这是「装完插件但没重启应用」的第二次（上一次是多帧 zstd 导致的预览空白），说明错误文案本身是缺陷的一部分：用户该看到下一步动作，而不是路由的字段校验原文。",
+      "rejected": "否掉两条：让客户端同时发 sessionIds 做兼容（旧宿主会去写宿主 workspace.json，正是 v0.1.14 被真机否证的路径，兼容等于把 bug 请回来）；让路由同时接受两种 body（旧宿主读不到新代码，改新代码解决不了还在跑的旧进程）。",
+      "sourceSessionId": "session-40f35738-4676-44df-a7eb-f2af33a114a2",
+      "status": "done",
+      "tags": [
+        "bug-fix",
+        "client",
+        "host",
+        "ux",
+        "release"
+      ],
+      "createdAt": 1793539765823,
+      "updatedAt": 1793539765823
+    },
+    {
+      "id": "card-9069fbaf-823b-40fc-8ba6-538a72ceecad",
+      "title": "按线框重排工作区详情页：单行头 + 四格 KPI + tab 行内筛选排序 + 两行会话行 + 右栏两张卡",
+      "summary": "src/client/views/Detail.tsx 重排：`.wb-dhead` 单行头（返回 + 17px 标题 + mono 路径 + 右端「新建会话」调 uiWorkspace.openWorkspace，去掉面包屑与项目下拉，onSwitch 降为可选）；`.wb-kpi` 改 4 格等宽 grid（`.k` 上 / `.vv` 下），范围只留在 title；`.wb-listbar` 把 tab 与「筛选/排序」并到同一条底线，筛选浮层内合并批量选择/整理闲置/撤销归档，新增 ListFilter(all/todo/untitled/cacheOnly) 与 ListSort(activity/created/turns)；会话行改两行（`.t` + `.sub` 由 rowSubtitle 产出「待办 · …」「正在执行」「只有缓存记录…」等），行高统一 59px；右栏压成待办 + 诊断与变更时间线（ChangeRow，按 at 降序）。themeCss.ts 同步增删规则。`tsc` 通过、`npm run build` 通过（lib/client.js 93824 B，自包裹/require('react')/return exports 校验全 true）、`npm test` 42 项全过。用 .preview/ 静态预览 + headless Edge 几何探针核对：头部四件同一行、KPI 四格各 284px、筛选浮层在视口内且盖在列表上、三行会话行均为 59px、右栏 2 张卡、无横向溢出。",
+      "rationale": "用户贴线框（m00001）说「优化后的布局不太对」。线框的核心诉求是「4 张统计卡压成 1 条 KPI，右栏承载不重复的信息」：原来详情页是面包屑+项目下拉、KPI 标签与数值挤一行、tab 行下还有一整条工具条、右栏四张卡（待办/运行中/变化/诊断）与左列重复。按线框把信息密度重新分层，是为了让「我在哪个工作区、这个工作区有什么、下一步点什么」一眼能用。",
+      "rejected": "①保留面包屑+<select> 项目切换器：详情页与 L1 卡片墙两个入口都能切项目，反而要解释「为什么这里也能切」，只留卡片墙。②保留 KPI 左侧「本工作区」可见标签：顶栏胶囊已各带「全部」、页面标题写了工作区名，标签变成噪音，改为 title 属性。③保留 tab 下那条工具条（批量选择/整理闲置/撤销归档）：它把列表整体下压，全部收进「筛选」浮层。④右栏保留运行中/变化/诊断三张卡：内容与左列会话行重复（线框底注「不再重复会话列表」），合并成「诊断与变更」时间线，只留列表里没有的异常计数与今日变化。⑤给副标题现造一场转录扫描取首条用户消息：会为每行多一次 I/O，先只用已加载事实（待办/来源/归档），没有可说的就不占行高。",
+      "sourceSessionId": "session-0970b3f5-a80d-4e0d-b349-4daf303915c7",
+      "status": "done",
+      "tags": [
+        "ui",
+        "client",
+        "layout"
+      ],
+      "createdAt": 1793540480691,
+      "updatedAt": 1793540480691
+    },
+    {
+      "id": "card-1435e12d-349a-43e4-9926-0ffeeff59b9e",
+      "title": "子会话跟随母会话：parentSession 归属 + 子会话标签（v0.1.19）",
+      "summary": "buildState 的归属顺序改为 成员表 → 插件归属表 → cwd，并把落进孤儿桶的会话收进 pending；用 projectBySessionKey（sessionIdVariants 双向登记）解析 parentSession，命中非孤儿项目就改挂、标 derived、记入 derivedIds 并重新登记，迭代到不动（guard 8）。derivedIds 同时用于 diagnostics.claimed（跟随成功的子会话不再算无主）与过滤被搬空的孤儿桶；derived 会话不写 staleCwds。SessionList 行上显示「子会话」标签。新增 3 个用例（跟随成功/父会话缺失/孤儿桶被搬空），44/44 通过，tsc 通过；版本 0.1.19 已 build/pack/install。数据边界：本机 44 个转录只有 7 个带 parentSession，9 个 edict-*/npc-exec-* 子代理没有该字段，仍留在孤儿桶（unclaimed 从 23 降到 10）。",
+      "rationale": "用户问「并入后点击会话，这个会话在工作区属于未分组，不能同时并入项目的子会话吗？」。子代理转录头里有 parentSession，但子会话 cwd 常是 ~/.dsh 或父项目旧路径，按 cwd 归桶会把它们留在孤儿桶里当「无主转录」，既污染诊断也不能随项目一起看。",
+      "rejected": "按 id 前缀（edict-* / npc-exec-*）猜父子：能看出是子代理，但猜不出母会话，多母会话时必然配错。按时间邻近度配对：6 个子代理的时间窗与两条母会话重叠，配错会被当成正常归属，比留在孤儿桶更难发现。把 ~/.dsh 整体并进某工作区：会把所有无关的 ~/.dsh 会话（含以后新建的）永久归到该项目，副作用不可控。重写转录头 cwd（P4 真迁移）：能同时修好宿主侧栏的「未分组」，但要重压 zstd 首帧 + 原子搬目录 + 回滚，风险远大于本次问题，未获用户授权不做。",
+      "sourceSessionId": "session-40f35738-4676-44df-a7eb-f2af33a114a2",
+      "status": "done",
+      "tags": [
+        "feature",
+        "model",
+        "client",
+        "release"
+      ],
+      "createdAt": 1793541144762,
+      "updatedAt": 1793541144762
+    },
+    {
+      "id": "card-2e0b1541-3c7c-41f4-8669-91949308d167",
+      "title": "P4 迁移：改写转录头 cwd + 搬目录，让宿主也认会话归属（v0.1.20）",
+      "summary": "新增 src/model/transcript.ts（rewriteHeadLine 只重写首帧首行并保留其余帧原字节、headFromBytes）与 src/host/migrate.ts（sessionSlug 复刻宿主目录编码、resolveSlugDirName 沿用磁盘实际目录名、migrateSessionCwd、addSessionIdsToWorkspace）；宿主新增 POST /dsh-overview/session/migrate（400/404/200，串行 + 逐条备份 + 全部成功才补成员表）；客户端 api.migrateSessions + Detail 的「迁移到本项目」「迁移过来」两个入口，运行中的会话自动跳过。测试新增 tests/migrate.test.ts（6 例：slug 规则、目录名沿用、cwd 改写与其余帧字节一致、幂等、目标冲突拒绝、成员表前缀与重复）+ 路由一例（400/404/200 + 文件真的搬走 + 成员表补上），51/51 通过，tsc 通过。真机 dry-run：12.4 MB / 上万帧转录迁移 24 ms、体积只差 3 字节。版本 0.1.20 已 build/pack/install；README 与 Agent Note 已更新。",
+      "rationale": "用户确认「做」。并入只改插件归属表，宿主侧栏按转录头 cwd 解析工作区，所以点击会话仍显示「未分组」；只有改 cwd 才能让宿主认。这也是「子会话能不能一起并入」问题的终极解法：迁移后宿主的侧栏、CLI、续接全部一致。",
+      "rejected": "整体解压再整体压缩：会把上万帧合并成一帧、改变体积与 mtime，丢形态。只改 cwd 不搬目录：宿主按 cwd 反推目录，会话会在宿主里消失。不备份：失败即不可逆。调宿主 registry attach/detach 做 reload：等于和宿主抢所有权（archive-manager overlay 路线翻车处）。代写 projcache identity：宿主有自己的缓存生命周期与回读确认，代写易写出宿主不认的状态。",
+      "sourceSessionId": "session-40f35738-4676-44df-a7eb-f2af33a114a2",
+      "status": "done",
+      "tags": [
+        "feature",
+        "host",
+        "client",
+        "release"
+      ],
+      "createdAt": 1793541574859,
+      "updatedAt": 1793541574859
+    },
+    {
+      "id": "card-d0362662-17a9-49f6-a355-5cb8cf814c7d",
+      "title": "空壳会话：宿主新建后切走只摘列表不删盘，插件侧标注与一键清理（v0.1.21）",
+      "summary": "新增 probeSessionFile（扫前 2 MB，读到文件末尾且全程无 user/assistant message 才判空，命中上限算未知），SessionMeta.empty 由 buildState 填充；会话行加「空壳」标签、筛选加「空壳会话」与「清理空壳会话（N）」（复用 deleteSessionsBatch，排除运行中/已归档，仍有 confirm）、右栏变更卡报数量。真机验证：全库 36 个会话里命中 1 个空壳，正是用户看到的那条 318 B 转录。测试新增 2 例（probe 判定 + buildState 标注，含「有 assistant 消息但缺标题不算空壳」），53/53 通过，tsc 通过；0.1.21 已 build/pack/install；README 与 Agent Note 已写。",
+      "rationale": "用户发现宿主侧已看不到的会话仍留在全景概览里，怀疑数据不一致。真因是「磁盘有、宿主列表无」，属于两种真相源的差异，必须把差异显式化并给出可执行处置，否则用户只能怀疑插件在乱显示。",
+      "rejected": "隐藏空壳会话（用户会以为会话丢了，且永远没人清理）；按「无标题」判定（会同误删有对话但缺 title 的会话，本机 8 个）；按文件大小阈值（宿主版本一变就不可靠）；自动删除（删除不可恢复，插件写入面应只由用户显式点击触发）；删除时顺带改 workspace.json 成员表（宿主内存真相，改了会被覆盖）。",
+      "sourceSessionId": "session-40f35738-4676-44df-a7eb-f2af33a114a2",
+      "status": "done",
+      "tags": [
+        "bug-fix",
+        "model",
+        "client",
+        "release"
+      ],
+      "createdAt": 1793542528932,
+      "updatedAt": 1793542528932
+    },
+    {
+      "id": "card-5d7b9cbc-45c2-4673-97a2-61c99c413898",
+      "title": "按飞书多维表格主页重做 L1 全景概览 UI（命令条 + 继续工作 + 显路径卡片 + 冷灰/蓝双主题 + 全屏）",
+      "description": "目标：把 L1 全景概览从「灰底胶囊 + 三格数字卡」改成飞书多维表格主页那种「纯白卡 + 单一主色 + 数据行」的形态。\n\n方案与原型：docs/redesign-ui-proposal.md（规格/口径/token/交互/落点）+ docs/redesign-layout.html（浅色/深色/跟随系统、宫格↔表格、结构标注 A 键、标注模式下露出「⑤ 控件 · 勾选框」规格区）。\n\n已并入的反馈：\n1. 恢复顶栏「诊断」入口（diagnostics = cacheIssues + unclaimed，为 0 隐藏）。\n2. 顶栏同时给「＋新建项目」「＋新建会话」。\n3. 内容区取消 max-width，全屏铺满。\n4. 卡片与列表都显示项目路径。\n5. 列表首列表头「工作区」→「项目名称」。\n6. 去掉自创的彩色首字方块与行号：项目/会话前一律 18px 单色线性图标（线条 1.6px、`--wb-ink-2`、无底色），勾选列 20px 里只放勾选框（hover/已选才出现）。\n\n按用户贴的 my.feishu.cn 真实 DOM 重做（取代此前凭先验的实现）：\n7. 勾选框 = Base `ud__checkbox` 结构：16×16、圆角 3、1px `--cbx-line`，框内两个 12×12 内联 SVG（勾 `M9.589 2.903l.808.809…`、半选 `M2 5.4c0-.22…`，照抄 `ud__checkbox__checked-svg` / `__indeterminate-svg`），`:checked + .cbx .ck` / `:indeterminate + .cbx .ind`；`.cbx-16` → 18px 只给批量条；卡片与列表共享同一份选择（data-pid）。\n8. 表格 = `div[role=table-view]` 结构：行高固定 44px、表头 40px、不画竖线（只有行间 1px `--row-line`，浅 #F0F1F2 / 深 #26282B）、勾选列 20px、列宽 20 / 1.6fr / 1.5fr / 84 / 84 / 112 / 40、主格 18px 图标 + 500 名称、⋯ 用 MoreOutlined、末行 ＋新增记录 44px；取消「行高」设置与字段类型小标。\n9. 区段头 = `.base-list-container-header`：`工作区`(15px/600) + 下划线 tab 同行，右端 排序 ▾ · 设置（浮层两段：显示字段 4 个 checkbox，只作用表格列 / 缩略图 显示·隐藏）· 视图分段两枚 26×24（DisorderList / Card 图标，aria-pressed）；删除独立的视图工具栏一行；删除「卡片大小」（Base 的 `设置` 是 `file-list-column-setting`，没有尺寸项）。\n10. 宫格按 Base `li[data-e2e=file-grid-item]` 重做：卡片 = 缩略图（118px 高、内缩 7px、圆角 6、`--surface-2` 底）+ 名称行（14px/500 + 状态 + ⋯）+ 描述行（12px ink-3：`4 会话 · 3 待办 · 12 分钟前`）+ 路径行（11px 等宽，为「一眼认出目录」额外保留，删掉即回到 Base 原样）。**删掉此前自创的 4 行「字段名 · 值」列表与彩色渐变封面**；缩略图用居中 30px 单色文件夹占位（DSH 没有预览图，不伪造截图）。\n\n实测（Edge headless + CDP 1440，无控制台报错）：卡片 240×213、缩略图 118px（内缩 8px 含 1px 描边）、名称 14px/500、路径 11px 等宽、描述行「4 会话 · 3 待办 · 12 分钟前」、`.frow` 剩 0 个、卡片勾选框位置 (10,10) opacity 0 → 选后 1；设置浮层小标题 [\"显示字段\",\"缩略图\"]、药丸 [\"显示\",\"隐藏\"]、点「隐藏」后 9 张卡 no-thumb 且卡片 88px；列表行高 44 / 表头 40 / borderRightWidth 0px / 行下边框 rgb(240,241,242) 1px / 列模板 `20px 539.344px 505.656px 84px 84px 112px 40px`；勾选框 16×16、勾选背景 rgb(51,112,255)；取消「路径」列后模板 `20px 1045px 84px 84px 112px 40px`。\n\n仍待拍板：主色（飞书蓝 #3370FF + 冷灰 vs 靛蓝 #3A56C5 + 暖灰）；卡片描述行用相对时间（现在）还是 Base 的绝对日期句式「最近修改于 11月2日 22:03」；默认视图宫格还是表格。\n\n未复刻：列宽拖拽（`.resizer` 只画把手）、类型/所有者列（DSH 无此字段）、冻结列、行虚拟滚动、卡片真缩略图（用占位图标）。\n\n实现前置：确认 uiWorkspace 是否暴露新建会话/新建工作区能力（见另一张卡）。",
+      "rationale": "用户参照飞书多维表格主页要求重做 L1 全景概览；反馈从「配色/布局」逐轮收窄到「完整复刻 Base 的 DOM 结构」，因此每轮都以真实 DOM 与 CDP 实测数字为准，避免凭先验画近似版。",
+      "sourceSessionId": "session-1dbcca0f-1f01-47c4-a7b7-38945f2f6938",
+      "status": "in_progress",
+      "tags": [
+        "ui",
+        "client",
+        "redesign",
+        "needs-decision"
+      ],
+      "createdAt": 1793544162740,
+      "updatedAt": 1793630471635,
+      "summary": "原型侧（docs/redesign-layout.html）已按飞书多维表格的真实 DOM 重做：命令条/页头/继续工作/宫格/表格/勾选框/区段头设置与视图分段全部 CDP 实测通过，规格同步进 docs/redesign-ui-proposal.md；尚未落到 src/ 代码。",
+      "rejected": "放弃了「凭印象近似复刻」与「外部取图/搜图对照」：web_search 无 API key、web_fetch 被沙箱 DNS 拦、模型不能读图，所以改为让用户贴 DOM + 自己用无头 Edge(CDP 9223) 量像素；也放弃了此前自创的 32px 行高、单元格竖线、40px 行号槽、独立视图工具栏——这些都不是 Base 的做法。"
+    },
+    {
+      "id": "card-5ff9bcd1-5a52-4592-8a66-26fa6bf40f82",
+      "title": "确认顶层「新建会话 / 新建项目」的可用宿主能力，决定两个按钮的落点",
+      "description": "原型顶栏现在有两个创建按钮，但插件实际拿到的能力只有：\n- `uiWorkspace.openSession(target)` — 打开既有会话\n- `uiWorkspace.openWorkspace(workspaceId, cb)` — 切到某工作区并开一个新会话（Detail.tsx:271-281 的 `newSession` 就是这么做的）\n\n**没有 createWorkspace / createSession。**\n\n因此需要定方案：\nA. 「＋新建会话」= 点开后先选工作区（下拉/弹层列出 9 个项目），再 `openWorkspace(id, cb)` 开新会话 —— 能力已具备，纯 UI 工作量。\nB. 「＋新建项目」= 宿主没有创建 API。要么改成「打开工作区目录」类动作，要么指到宿主自身的创建工作区入口（需确认 DSH 是否有可调用命令），否则只能隐藏。\nC. 兜底：拿不到能力时按钮不渲染（不做假按钮）。\n\n结论要回填到 docs/redesign-ui-proposal.md 3.1 与原型。",
+      "rationale": "为什么：用户明确要求顶栏同时有「新建会话」和「新建项目」。原型可以先画，但代码落地前必须知道宿主给不给创建能力，否则会做出点了没反应的按钮——这类假按钮在旧版本已经踩过（「并入失败：workspaceId and sessionIds are required」那次就是能力假设错了）。\n\n放弃了什么：① 不在顶栏直接调 `openWorkspace()` 不带参数试图「新建项目」，宿主签名要求 workspaceId，必失败；② 不先改代码再发现能力缺失。",
+      "sourceSessionId": "session-1dbcca0f-1f01-47c4-a7b7-38945f2f6938",
+      "status": "todo",
+      "tags": [
+        "ui",
+        "client",
+        "host",
+        "needs-decision",
+        "redesign"
+      ],
+      "createdAt": 1793545196458,
+      "updatedAt": 1793545196458
+    },
+    {
+      "id": "card-fec25662-1832-4cb0-875f-d038a4063b17",
+      "title": "宿主侧新增项目级批量接口 /dsh-overview/project/batch（archive / unarchive / delete）",
+      "description": "目标：一次请求处理一组项目，语义对齐现有会话批量。\n\n路由：POST /dsh-overview/project/batch，body `{ action: 'archive' | 'unarchive' | 'delete', projectIds: string[] }`，返回 `BatchResult`（runSerialBatch 串行，沿用 deleteSession.ts 的 remaining/失败项结构，客户端可重试）。\n\n语义：\n- archive = 把该项目下全部非归档会话加入 global.archivedSessionIds（项目「已归档」本来就是全员归档派生的，不新增项目级字段）。\n- unarchive = 从 archivedSessionIds 移除该项目全部会话。\n- delete = 会话转录物理删除 + 从插件归属表摘掉项目记录；**必须先确认删项目到底删什么**（转录要不要一起删、目录动不动），这条没定下来不允许接线。\n- projectIds 用 ProjectState.id（稳定，不是 path）；解析不到项目的 id 记进 remaining 并在 errors 里给原因。\n\n风险与约束：\n- delete 不可逆（转录物理清理），接口层要求显式 `confirm: 'DELETE'` 之类的一次性令牌，误调用直接 400，不做「默认删」。\n- 归档/恢复走官方 workspaces 服务写 workspace.json，不要绕过宿主自写文件（与既有 archiveSession 一致）。\n- 接口要幂等：重复 archive 已归档项目返回 ok 而不是报错。\n\n实现位置：src/host/index.ts 新增路由 + src/host/projectBatch.ts（新）+ src/model/batch.ts 复用；并在 src/cli.ts 加一条自测入口，便于不启宿主就验证。",
+      "rationale": "L1 项目列表要加勾选框和批量条，但宿主只暴露了会话级批量（POST /dsh-overview/session/batch，src/host/index.ts:405，逻辑在 src/model/batch.ts + src/host/deleteSession.ts）与工作区打开（workspaceId 是项目调用会话的前提，uiWorkspace 没有 createSession/createWorkspace）。项目级归档目前没有写入口：ProjectState.archived 是 buildState 派生出来的，归档真相只有 workspace 域的 global.archivedSessionIds（见 src/model/sources.ts:56-60）。所以先补接口，否则 L1 勾选框只能是假按钮。",
+      "rejected": "① 客户端逐个项目循环调 /session/batch（每个项目一次请求发 N 个会话 id）：N×M 次请求，中途失败无法回滚，进度不可见，且删项目仍缺语义。② 插件自己在状态文件里维护一个项目级 archived 表：与宿主 workspace.json 的 archivedSessionIds 成为两套真相，会在宿主里打开会话时立即发散（此前「并入工作区」就是因为绕过宿主写文件被打回过，见已完成卡「修『并入工作区』被删除操作回退」）。③ 先做 UI 假按钮/禁用态占位：用户已明确「先加接口后补」，不做假按钮。",
+      "sourceSessionId": "session-1dbcca0f-1f01-47c4-a7b7-38945f2f6938",
+      "status": "todo",
+      "tags": [
+        "host",
+        "api",
+        "batch",
+        "redesign",
+        "needs-decision"
+      ],
+      "createdAt": 1793545491573,
+      "updatedAt": 1793545491573
+    },
+    {
+      "id": "card-878ec117-72d4-4c40-881b-97cd45dbe65d",
+      "title": "L1 项目列表勾选框 + 底部批量条（归档 / 恢复 / 删除，依赖 project/batch 接口）",
+      "description": "原型 `docs/redesign-layout.html` 已实现并被 CDP 实点验证（卡片 + 列表两个视图共享同一份选择）。落地要点：\n1) 勾选框默认隐藏，列表行 hover/已选中露出；卡片 hover/聚焦/已选中时用勾选框替换首字徽标（绝对定位同格位，不重排）。\n2) 表头全选 16px 三态（checked + indeterminate），常驻半透明。\n3) 选中行/卡 = `--wb-accent-bg-weak` 纯底色，无竖条。\n4) 底部固定批量条：已选 N · 归档 / 恢复 / 删除 / 取消；Esc 清空；计数按项目去重。\n5) 真实动作依赖 `card-fec25662` 的 `/dsh-overview/project/batch`；接口未落地前按钮只清空选择不提交（原型行为），正式版**不得**上线假按钮。\n6) 「进行中」tab 的勾选框禁用（运行中的项目不给归档/删除）。",
+      "rationale": "用户要求「先加接口后补」——勾选框已在方案里定稿，但 L1 项目级批量没有宿主接口，先记录 UI 侧待办，等 /dsh-overview/project/batch 落地后直接接上；避免下次会话只记得接口忘了消费方。",
+      "rejected": "① 卡片视图也给勾选框：卡片整体是 button，左侧再放 checkbox 会出现点击歧义（点勾还是开项目），且 9 张卡同时出勾选框视觉噪音大。② 复用 L2 会话批量的 .wb-batchbar 原样搬过来：会话批量是「归档/删除」两项，项目批量多了「恢复」，且删除危险级更高必须二次确认，不能共用一套文案。",
+      "sourceSessionId": "session-1dbcca0f-1f01-47c4-a7b7-38945f2f6938",
+      "status": "todo",
+      "tags": [
+        "ui",
+        "client",
+        "redesign",
+        "batch",
+        "blocked-by-api"
+      ],
+      "createdAt": 1793545498970,
+      "updatedAt": 1793546295969
     }
   ]
 }

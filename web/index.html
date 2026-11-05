@@ -4,9 +4,43 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>dsh-overview · dev</title>
+    <style>
+      /* 沙盒撑满视口：html/body 默认 margin 与塌缩高度会让深色主题盖不满整屏 */
+      html,
+      body,
+      #root {
+        margin: 0;
+        height: 100%;
+      }
+    </style>
   </head>
   <body>
     <div id="root"></div>
+    <!--
+      dev 沙盒 require 垫片：client half 的 react.ts 用 require("react")（宿主注册表解析，
+      esbuild 产物校验强制保留），浏览器 ESM 没有全局 require。这里在模块脚本之前定义同步
+      垫片：先由下面的 module 脚本把 Vite 预构建的 React 挂到 window，再让 main.tsx 的模块图
+      执行——deferred module 脚本按文档顺序执行，顺序有保证。仅 dev 使用，宿主不加载此文件。
+    -->
+    <script>
+      window.__dshRequire = function (id) {
+        if (id === 'react' && window.__dshReact) return window.__dshReact
+        if (id === 'react-dom' && window.__dshReactDom) return window.__dshReactDom
+        throw new Error('[dsh-overview dev] require shim 无法解析 ' + id)
+      }
+    </script>
+    <script type="module">
+      import React from 'react'
+      import ReactDOM from 'react-dom'
+      window.__dshReact = React
+      window.__dshReactDom = ReactDOM
+      // react.ts 的 require 走垫片；若某些打包器改写了全局 require 引用，这里兜底
+      if (typeof window.require === 'undefined') window.require = window.__dshRequire
+    </script>
+    <script>
+      // 兜底：classic 脚本最早执行，指向垫片（module 脚本此时还没把 React 挂上）
+      if (typeof window.require === 'undefined') window.require = window.__dshRequire
+    </script>
     <script type="module" src="/src/client/main.tsx"></script>
   </body>
 </html>

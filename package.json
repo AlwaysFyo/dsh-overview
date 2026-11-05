@@ -1,6 +1,6 @@
 {
   "name": "dsh-overview",
-  "version": "0.1.11",
+  "version": "0.1.24",
   "private": true,
   "type": "module",
   "description": "DSH 全景概览插件：以工作区项目为维度的会话/任务仪表盘",
@@ -37,9 +37,10 @@
   },
   "scripts": {
     "build": "tsdown && node scripts/build-client.mjs",
+    "prepack": "npm run build",
     "snapshot": "node src/cli.ts",
     "check": "tsc -p tsconfig.json",
-    "test": "node --test tests/model.test.ts tests/delete.test.ts tests/liveness.test.ts",
+    "test": "node --test --test-force-exit tests/model.test.ts tests/delete.test.ts tests/liveness.test.ts tests/p3.test.ts tests/host-routes.test.ts tests/migrate.test.ts",
     "dev": "vite"
   },
   "dsh": {
@@ -62,16 +63,11 @@
   },
   "devDependencies": {
     "@deepseek-ai/cordis": "^4.0.5",
-    "@deepseek-ai/dsh-api-session-controller": "^0.2.1-rc.5",
     "@deepseek-ai/dsh-client-ui-primitives": "^0.2.1-rc.5",
-    "@deepseek-ai/dsh-client-ui-workspace": "^0.2.1-rc.5",
-    "@deepseek-ai/dsh-host-webserver": "^0.0.1-rc.1",
-    "@deepseek-ai/dsh-session": "^0.2.1-rc.5",
     "@types/node": "^26.6.6",
     "@types/react": "^19.3.0",
     "@types/react-dom": "^19.3.0",
     "@vitejs/plugin-react": "^6.1.2",
-    "clsx": "^2.1.1",
     "esbuild": "^0.28.2",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
