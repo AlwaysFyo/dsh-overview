@@ -2,11 +2,11 @@
 
 [![CI](https://github.com/zhileyo/dsh-overview/actions/workflows/ci.yml/badge.svg)](https://github.com/zhileyo/dsh-overview/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-[![CNB](https://img.shields.io/badge/mirror-CNB-1a7f37.svg)](https://cnb.cool/one-mugen/dsh-overview)
+[![CNB](https://img.shields.io/badge/mirror-CNB-1a7f37.svg)](https://cnb.cool/zhileyo/dsh-overview)
 
 DSH（DeepSeekRuntime）全景概览插件：以工作区项目为维度的会话 / 任务仪表盘，中文界面名为「全景概览」。
 
-- 仓库（CNB 主仓 + GitHub 镜像）：[CNB](https://cnb.cool/one-mugen/dsh-overview) · [GitHub](https://github.com/zhileyo/dsh-overview)
+- 仓库（CNB 主仓 + GitHub 镜像）：[CNB](https://cnb.cool/zhileyo/dsh-overview) · [GitHub](https://github.com/zhileyo/dsh-overview)
 - 设计与决策：[docs/design.md](docs/design.md)
 - 需求基线：[docs/dsh-overview-prd.html](docs/dsh-overview-prd.html)（PRD v0.3，含 R2 实现变更说明）
 - UI 原型：[docs/dsh-overview-ui.html](docs/dsh-overview-ui.html)
