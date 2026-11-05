@@ -15,11 +15,11 @@
   ],
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/AlwaysFyo/dsh-overview.git"
+    "url": "git+https://github.com/zhileyo/dsh-overview.git"
   },
-  "homepage": "https://cnb.cool/one-mugen/dsh-overview",
+  "homepage": "https://cnb.cool/zhileyo/dsh-overview",
   "bugs": {
-    "url": "https://github.com/AlwaysFyo/dsh-overview/issues"
+    "url": "https://github.com/zhileyo/dsh-overview/issues"
   },
   "main": "./lib/index.js",
   "exports": {

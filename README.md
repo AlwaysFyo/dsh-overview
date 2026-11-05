@@ -1,6 +1,5 @@
 # dsh-overview
 
-[![CI](https://github.com/zhileyo/dsh-overview/actions/workflows/ci.yml/badge.svg)](https://github.com/zhileyo/dsh-overview/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 [![CNB](https://img.shields.io/badge/mirror-CNB-1a7f37.svg)](https://cnb.cool/zhileyo/dsh-overview)
 
@@ -11,7 +10,7 @@ DSH（DeepSeekRuntime）全景概览插件：以工作区项目为维度的会�
 - 需求基线：[docs/dsh-overview-prd.html](docs/dsh-overview-prd.html)（PRD v0.3，含 R2 实现变更说明）
 - UI 原型：[docs/dsh-overview-ui.html](docs/dsh-overview-ui.html)
 
-同步流程（CNB 单推 + 流水线镜像）：本地只有 `origin = cnb.cool`，`git push` 只写 CNB；GitHub 由 `.cnb.yml` 的 `mirror-to-github` 流水线在每次 `push: main` 后镜像（与 `dsh-fairy`、`hexo-butterfly-next` 同一套做法）。两处细节：① 镜像前用 `git filter-branch --index-filter` 把 **`.cnb.yml` 从整条历史里摘掉**——该文件只在 CNB 有意义，GitHub 侧不该有；改写是确定性的，所以增量推送仍然只传新提交，但**两边的 commit SHA 不再相同**（比对只能看文件内容，不能比 SHA）。② 凭据 `GITHUB_USERNAME` / `GITHUB_TOKEN` 不写在仓库里，由密钥仓库 `zhileyo/secrets` 的 `secrets.yml` 经 `imports` 注入；token 是 fine-grained PAT，`Repository access` 必须包含 `zhileyo/dsh-overview` 且 `Contents: Read and write`。凭据缺失或无权访问时流水线**直接失败**（前置用 GitHub API 预检，把 401/404 翻译成具体缺哪项权限），不静默跳过——否则内容同步了但镜像不了，两边会长期漂移。GitHub 侧仍保留 `ci.yml`（`npm ci` / `check` / `test`）作为第二道验证。
+同步流程（CNB 单推 + 流水线镜像）：本地只有 `origin = cnb.cool`，`git push` 只写 CNB；GitHub 由 `.cnb.yml` 的 `mirror-to-github` 流水线在每次 `push: main` 后镜像。三处细节：① 镜像前先跑 `npm ci` / `check` / `test` 门禁，红提交不进 GitHub（这是唯一的 CI 门禁，仓库不再配置 GitHub Actions）；② 推送前先把本地 branches/tags 与 CNB 对齐，并删掉 GitHub 侧 CNB 已不存在的 ref，再由 `tencentcom/git-sync` 推送（插件本身不 prune，所以清理放在前置阶段），`.cnb.yml` 也原样同步过去，因此**两边 commit SHA 相同**，可以直接比对；③ 凭据 `GITHUB_USERNAME` / `GITHUB_TOKEN` 不写在仓库里，由密钥仓库 `zhileyo/secrets` 的 `secrets.yml` 经 `imports` 注入；token 是 fine-grained PAT，`Repository access` 必须包含 `zhileyo/dsh-overview` 且 `Contents: Read and write`。凭据缺失或无权访问时流水线**直接失败**，不静默跳过——否则内容同步了但镜像不了，两边会长期漂移。
 
 ## 当前状态
 
@@ -58,7 +57,7 @@ npm pack                        # 产出 tarball 供插件管理器安装
 
 ## 后续步骤
 
-- P2 收尾：CI 里跑 `npm run build`（`npm test` 已在 CI），`npm run check` 纳入 CI
+- P2 收尾：门禁里跑 `npm run build`（`npm test` / `npm run check` 已在 `.cnb.yml` 的 test stage）
 - P4：跨工作区移动会话（要重写 zstd 首帧 cwd 并原子搬迁转录目录，参考 `dsh-archive-manager` 的 `session-move.ts`）；会话收藏（需自持独立存储域，不能塞进宿主 workspace 结构）
 - 参考项目里明确**不抄**的：Typert overlay 挂载（抢 `workspaceRegistry` 服务身份）、侧栏星标 DOM 织入（与三方皮肤冲突）、双入口同步、轮次统计类后台批量解压
 
